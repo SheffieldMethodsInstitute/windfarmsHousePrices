@@ -209,7 +209,6 @@ def run_script(iface):
 	# 	layer.SetFeature(feature)
 
 	#Iterate over indexed grid refs, assign to the new field
-
 	for no in index:
 		
 		feature = layer.GetFeature(no[0])
@@ -219,47 +218,7 @@ def run_script(iface):
 		#print(feature.GetField("raster_ref"))
 
 
-
-
-
-	
-	# dataSource.Destroy()
-
-
-
-
-
-
-
-		
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	
-
-  
-
-
-
-  	
-
-
-
-	
-
-
-
+	dataSource.Destroy()
 
 
 
