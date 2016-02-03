@@ -16,21 +16,33 @@ def run_script(iface):
 	turbines = QgsVectorLayer('C:/Data/WindFarmViewShed/Tests/PythonTests/testData/turbineSample.shp','turbines','ogr')
 	print(turbines.isValid())
 
+	#Just single turbine
+	#Which isn't working
+	# turbines = QgsVectorLayer('C:/Data/WindFarmViewShed/Tests/PythonTests/testData/singleTurbineSample.shp','turbines','ogr')
+	# print(turbines.isValid())
+
+
 	#Check in QGIS
 	#QgsMapLayerRegistry.instance().addMapLayers([turbines])
 
 	#Load housing points
-	houses = QgsVectorLayer('C:/Data/MapPolygons/Generated/tests/randomPointsInScotland.shp','houses','ogr')
+	# houses = QgsVectorLayer('C:/Data/MapPolygons/Generated/tests/randomPointsInScotland.shp','houses','ogr')
+	# print(houses.isValid())
+
+	#Sample of raw geocoded new-RoS properties, ~5,000
+	houses = QgsVectorLayer(
+		'C:/Data/WindFarmViewShed/Tests/PythonTests/testData/Sample_oneinhundred_rawGeocodedNewRoS.shp',
+		'houses','ogr')
 	print(houses.isValid())
 
 	#Check in QGIS
-	#QgsMapLayerRegistry.instance().addMapLayers([houses])
+	#QgsMapLayerRegistry.instance().addMapLayers([houses])	
 
 	########################
 	# CYCLE THROUGH TURBINES
 	fts = turbines.getFeatures()
 	
-	# single = fts.next()
+	#single = fts.next()
 	for single in fts:
 
 		#turn single turbine into its own layer, for piping into the viewshed calc later
@@ -95,7 +107,7 @@ def run_script(iface):
 
 			subsetHouses = houses.getFeatures(request)
 			blob = [feature for feature in subsetHouses]
-			
+
 			#Add those features to housesInBox layer
 			pr.addFeatures(blob)
 			
@@ -121,18 +133,30 @@ def run_script(iface):
 			#Now can I do that in one line? Yup!
 			features = [feature for feature in housesInBox.getFeatures() if feature.geometry().intersects(buffr)]
 
+			print('Number of houses in this turbine buffer: ' + str(len(features)))
+			
 			pr.addFeatures(features)
 
 			return(housesInBuffer)
 
+		
+
+		#print "Housing in-buffer subset calc: %s seconds " % timeit.timeit(getHousesInBufferZone,number=1)
+		#have to run twice to actually get the data...
+		housesInBuffer = getHousesInBufferZone()
+
 		#And check it's what we wanted... yup!
-		#housesInBuffer.updateExtents()
+		# housesInBuffer.updateExtents()
 		# QgsMapLayerRegistry.instance().addMapLayers([housesInBuffer])
 
 
-		print "Housing in-buffer subset calc: %s seconds " % timeit.timeit(getHousesInBufferZone,number=1)
-		#have to run twice to actually get the data...
-		housesInBuffer = getHousesInBufferZone()
+		#Check attributes
+		# features = housesInBuffer.getFeatures()	
+
+		# for f in features:
+		# 	if f.id() < 10:
+		# 		print(f.attributes())
+		# 		print(f.id())
 		
 		####################
 		# GET VIRTUAL RASTER
@@ -161,7 +185,9 @@ def run_script(iface):
 			#Let's not add more to the filename, it's only more to faff with when reloading...
 			('C:/Data/WindFarmViewShed/ViewshedPython/ViewshedOutput/' + str(single.id())),
 			['Intervisibility',0,0],#from the dialogue code in viewshedanalysisdialogue.py
+			# ['Binary',0,0],#viewshed tiffs
 			housesInBuffer,#If this is included when not using interviz, it defaults to a mask
+			# 0,#in place of target vector layer (housesInBuffer) if using 'Binary'
 			0,#Function defaults shows these as zero
 			0,
 			0, 
@@ -169,34 +195,106 @@ def run_script(iface):
 			0, 
 			0)
 
+			return out_raster
+
 		before = time.time()
 		print('Starting viewshed calc...')
-		runViewShed()
-		# print('viewshed for turbine id ' + str(single.id()) + ':' + str(time.time() - before))
-		print "Viewshed calc: %s seconds " % timeit.timeit(runViewShed,number=1)
+
+		#return intervisibility vector layer
+		#Fields in the new shapefile are:
+		#Source 
+		#(always 1 since we're doing interviz from only one observer turbine
+		#but that's OK - we've got the turbine ID in the record order from 
+		#The original turbines file that's input).
+		#Target. We'll use this to grab the property title number
+		#Visible: true/false
+		#TargetSize:??
+		#Distance: handy distance calc
+		#runViewShed()
+		output = runViewShed()
+		print('viewshed for turbine id ' + str(single.id()) + ':' + str(time.time() - before))
 
 
+		################################################
+		# ADD TITLE NO REF BACK INTO THE VIEWSHED OUTPUT
+
+		#From viewshedanalysis.py
+		#There'll only be one of these if getting interviz network
+		#OK, so Python scope != Java scope!
+		#http://stackoverflow.com/questions/3611760/scoping-in-python-for-loops
+		#"If you don't want the for loop cluttering your global namespace, wrap it in a function. Closures galore!"
+		#layer = QgsVectorLayer()
+
+		#Get the resulting vector shapefile
+		for r in output:
+			
+			lyName = os.path.splitext(os.path.basename(r))
+			layer = QgsVectorLayer(r,lyName[0],"ogr")#assuming vector layer
+			print(layer.isValid())
 
 
+		#Option to reload that from disk while testing to avoid re-running viewshed calc each time
+		# layer = QgsVectorLayer('C:/Data/WindFarmViewShed/ViewshedPython/ViewshedOutput/0.shp',
+		# 	'layer','ogr')
+		# print(layer.isValid())
 
-	
+		# layer.startEditing()
 
+		#Add a new field for the property title number
+		dp = layer.dataProvider()
+		dp.addAttributes([QgsField('TitleNo',QVariant.String)])
 
+		#Get correct id from output layer
+		out_fts = layer.getFeatures()
 
+		#Get list of house IDs from the interviz layer
+		houseIDs = []
 
+		for out_ft in out_fts:
+			#Target num in second column
+			houseIDs.append(int(out_ft.attributes()[1]))
 
+		# print 'house IDs:'
 
+		# for id in houseIDs:
+		# 	print id
 
+		#Just to compare...
+		#bf = housesInBuffer.getFeatures()
 
+		#http://gis.stackexchange.com/questions/97344/how-to-change-attributes-with-qgis-python
+		updateMap = {}
+		mapindex = 0
 
+		dp = layer.dataProvider()
+		fieldIdx = dp.fields().indexFromName('TitleNo')
 
+		for houseID in houseIDs:
 
+			#Not a way to get feature directly?
+			fts = housesInBuffer.getFeatures(QgsFeatureRequest().setFilterFid(houseID))
+			#This is just fetching the one feature in the iterator.
+			ft = fts.next()
 
+			#print('houseInBuffer attr:' + ft.attributes()[1])
+			
+			updateMap[mapindex] = {fieldIdx : ft.attributes()[1]}
+			mapindex += 1
 
+		# print 'mapindex:'
 
-        
-        
-	
-	
-    
-	
+		# for idx in updateMap:
+		# 	print (str(idx) + ':' + str(updateMap[idx]))
+
+		#Add title number from house file to correct ob
+		dp.changeAttributeValues(updateMap)
+
+		# layer.commitChanges()
+
+		#87 should be STG44147. 
+		#151 should be DMB61693
+		#Yup!
+		# fts = housesInBuffer.getFeatures(QgsFeatureRequest().setFilterFid(87))
+		# print(fts.next().attributes()[1])
+		# fts = housesInBuffer.getFeatures(QgsFeatureRequest().setFilterFid(151))
+		# print(fts.next().attributes()[1])
