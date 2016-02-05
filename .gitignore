@@ -4,3 +4,4 @@
 
 *.pyc
 .Rproj.user
+/ViewShedJava/SimpleViewShed/build/
