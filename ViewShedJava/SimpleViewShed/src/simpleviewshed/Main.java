@@ -40,6 +40,9 @@ public class Main {
         //Basically, everything is 1/5th scale to make array work easy 
         //- which national grid also makes easy by using metric
         //That's just the sort of thing I'd forget and have to spend a day tracking down.
+        
+        
+        
 
         raster = Images.readTiff();
 
@@ -60,7 +63,7 @@ public class Main {
         System.out.println("True: " + tru + ", false: " + (targets.size() - tru));
 
         try {
-            DataOutput.writeIntervizCSV(targets, "data/attempt6.csv");
+            DataOutput.writeIntervizCSV(targets, "data/bigRasterTest2.csv");
         } catch (Exception e) {
             System.out.println("Data output booboo: " + e);
         }
@@ -79,6 +82,7 @@ public class Main {
         int targetX, targetY;
 
         float radius = (Images.height / 2) - 1;
+        System.out.println("radius: " + radius);
 
         int observerX = (Images.width / 2) - 1, observerY = (Images.height / 2) - 1;
 
@@ -86,7 +90,7 @@ public class Main {
 
         viewCircle = new Ellipse2D.Float((float) observerX - radius, (float) observerY - radius, radius * 2, radius * 2);
 
-        for (int i = 0; i < 250000; i++) {
+        for (int i = 0; i < 500000; i++) {
 
             if (i % 5000 == 0) {
                 System.out.println("Interviz test, target:" + i + " ,"
@@ -113,8 +117,8 @@ public class Main {
             lineOfSight = getLineOfSight(20, 0.2f);
 
             //do bespoke coordinate conversion to match raster in QGIS
-            targetX = 265000 + (targetX * 5);
-            targetY = 690000 - (targetY * 5);
+            targetX = 235000 + (targetX * 5);
+            targetY = 665000 - (targetY * 5);
 
             canISeeYou = canISeeYou();
             

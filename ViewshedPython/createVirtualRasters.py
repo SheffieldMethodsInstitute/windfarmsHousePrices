@@ -46,7 +46,8 @@ def run_script(iface):
 		buffr = single.geometry().buffer(15000,20)
 
 		#New memory layer for the buffer
-		buffLyr = QgsVectorLayer('Polygon?crs=EPSG:27700', 'buffer', 'memory')
+		# buffLyr = QgsVectorLayer('Polygon?crs=EPSG:27700', 'buffer', 'memory')
+		buffLyr = QgsVectorLayer('C:/Data/WindFarmViewShed/Tests/PythonTests/testData/turbineSample.shp','turbines','ogr')
 
 		pr = buffLyr.dataProvider()
 		b = QgsFeature()

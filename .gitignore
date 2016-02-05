@@ -5,3 +5,4 @@
 *.pyc
 .Rproj.user
 /ViewShedJava/SimpleViewShed/build/
+/ViewShedJava/SimpleViewShed/nbproject/private/

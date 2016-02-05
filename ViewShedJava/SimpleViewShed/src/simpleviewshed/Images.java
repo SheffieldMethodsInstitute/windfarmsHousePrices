@@ -27,8 +27,10 @@ public class Images {
             //Needs https://github.com/jai-imageio/jai-imageio-core
             //I used standalone jar from
             //https://bintray.com/jai-imageio/maven/jai-imageio-core-standalone/view
-            image = ImageIO.read(new File("rasters/test.tif"));
+//            image = ImageIO.read(new File("rasters/test.tif"));
 //            image = ImageIO.read(new File("rasters/testSingleTile2.tif"));
+//            image = ImageIO.read(new File("rasters/bigRasterFromMultiBuffer.tif"));
+            image = ImageIO.read(new File("rasters/bigRasterFromMultiBuffer2.tif"));
 
             //RGB outputs as a 32 bit int. We want 32 bit float.
 //            float fl = Float.intBitsToFloat(i);
