@@ -30,7 +30,8 @@ public class Images {
 //            image = ImageIO.read(new File("rasters/test.tif"));
 //            image = ImageIO.read(new File("rasters/testSingleTile2.tif"));
 //            image = ImageIO.read(new File("rasters/bigRasterFromMultiBuffer.tif"));
-            image = ImageIO.read(new File("rasters/bigRasterFromMultiBuffer2.tif"));
+//            image = ImageIO.read(new File("rasters/bigRasterFromMultiBuffer2.tif"));
+            image = ImageIO.read(new File("data/rasters/3.tif"));
 
             //RGB outputs as a 32 bit int. We want 32 bit float.
 //            float fl = Float.intBitsToFloat(i);

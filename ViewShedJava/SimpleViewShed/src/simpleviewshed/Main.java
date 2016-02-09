@@ -63,7 +63,7 @@ public class Main {
         System.out.println("True: " + tru + ", false: " + (targets.size() - tru));
 
         try {
-            DataOutput.writeIntervizCSV(targets, "data/bigRasterTest2.csv");
+            DataOutput.writeIntervizCSV(targets, "data/pythonOutputRasterTest.csv");
         } catch (Exception e) {
             System.out.println("Data output booboo: " + e);
         }
@@ -117,8 +117,9 @@ public class Main {
             lineOfSight = getLineOfSight(20, 0.2f);
 
             //do bespoke coordinate conversion to match raster in QGIS
+            
             targetX = 235000 + (targetX * 5);
-            targetY = 665000 - (targetY * 5);
+            targetY = 670000 - (targetY * 5);
 
             canISeeYou = canISeeYou();
             
