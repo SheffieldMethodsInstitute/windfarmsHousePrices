@@ -13,7 +13,7 @@ import java.util.ArrayList;
  */
 public class DataOutput {
 
-    public static void writeIntervizCSV(ArrayList<InterVizTarget> targets, String filename) throws Exception {
+    public static void outputData(DataStore data, String filename) throws Exception {
 
         //create a File class object and give the file the name employees.csv
         java.io.File CSV = new java.io.File(filename);
@@ -22,18 +22,31 @@ public class DataOutput {
         java.io.PrintWriter outfile = new java.io.PrintWriter(CSV);
 
         //Header first
-        outfile.write(InterVizTarget.CSVHeader());
+        String header = data.writeFieldsToCSV() + ",";
+        for (String s : data.points.get(0).getExtraFieldNames()) {
+            
+            if (!s.equals("")) {
+                header += (s + ",");
+            }
+            
+        }
+        
+        header += "\n";
 
-        for (InterVizTarget v : targets) {            
-            outfile.write(v.toCSVString());
+        System.out.println("header: " + header);
+
+        outfile.write(header);
+
+        for (Point v : data.points) {
+            outfile.write(v.writeDataToCSV());
         }
 
         outfile.close();
 
     }
-    
+
     public static void outputHeightsAndLineOfSight(boolean canISeeYou, ArrayList<Float> heights, float[] line, String filename) throws Exception {
-        
+
         //create a File class object and give the file the name employees.csv
         java.io.File CSV = new java.io.File(filename);
 
@@ -42,15 +55,15 @@ public class DataOutput {
 
         //Header first
         outfile.write("canISeeYou,heights,lineofsight\n");
-        
+
         for (int i = 0; i < line.length; i++) {
-            
-            outfile.write((canISeeYou ? "1":"0") +  "," + String.valueOf(heights.get(i)) + "," + String.valueOf(line[i]) + "\n");
-            
-        }        
+
+            outfile.write((canISeeYou ? "1" : "0") + "," + String.valueOf(heights.get(i)) + "," + String.valueOf(line[i]) + "\n");
+
+        }
 
         outfile.close();
-        
+
     }
 
 }

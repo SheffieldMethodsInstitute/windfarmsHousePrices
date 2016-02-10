@@ -109,7 +109,7 @@ def run_script(iface):
 
 		
 
-	print len(geoms)
+	print 'Number of buffers that will have their own observer/target/raster set: ' + str(len(geoms))
 
 	# # New layer to stick the single-parts into
 	# buffLyr = QgsVectorLayer('Polygon?crs=EPSG:27700', 'buffbuff', 
@@ -119,15 +119,15 @@ def run_script(iface):
 	print(buffLyr.isValid())
 
 	pr = buffLyr.dataProvider()
-	print type(pr)
+	# print type(pr)
 
 	for thing in geoms:
 
-		print type(thing)
+		# print type(thing)
 
 		b = QgsFeature()
 
-		print type(b)
+		# print type(b)
 
 		b.setGeometry(thing)
 		pr.addFeatures([b])
@@ -178,7 +178,7 @@ def run_script(iface):
 		featuresInBuffer = QgsVectorLayer('Point?crs=EPSG:27700', newlayername, 'memory')
 		pr = featuresInBuffer.dataProvider()
 
-		print(type(layer.fields()))
+		# print(type(layer.fields()))
 
 		#give new layer matching fields so the feature addition keeps the original values
 		pr.addAttributes(layer.fields())			
@@ -198,8 +198,8 @@ def run_script(iface):
 
 		print('Number of features in this buffer: ' + str(len(features)))
 
-		print(type(features))
-		print(type(features[0]))
+		# print(type(features))
+		# print(type(features[0]))
 		
 		pr.addFeatures(features)
 
@@ -231,7 +231,7 @@ def run_script(iface):
 
 		print('Turbine intersect done: ' + str(time.time() - before))
 
-		filename = ('ViewShedJava/SimpleViewShed/data/observers' + str(buffr.id()) + '.csv')
+		filename = ('ViewShedJava/SimpleViewShed/data/observers/' + str(buffr.id()) + '.csv')
 		# filename = ('C:/Data/WindFarmViewShed/Tests/PythonTests/testData/turbines/' + str(buffr.id()) + '.csv')
 
 		#Save as CSV with coordinates
@@ -240,14 +240,14 @@ def run_script(iface):
 		#Use these to make the new larger viewshed buffer
 		geometryanalyzer.buffer(turbinesInBuffer, 
 		# 'Data/temp/15kmBuffer.shp', 
-		'Data/temp/15kmBuffer' + str (buffr.id()) + '.shp', 
+		'ViewShedJava/SimpleViewShed/data/temp/15kmBuffer' + str (buffr.id()) + '.shp', 
 		15000, False, True, -1)
 
 		#viewBuff = 0
 
 		viewBuff = QgsVectorLayer(
 			# 'Data/temp/15kmBuffer.shp', 
-			'Data/temp/15kmBuffer' + str (buffr.id()) + '.shp',
+			'ViewShedJava/SimpleViewShed/data/temp/15kmBuffer' + str (buffr.id()) + '.shp',
 			'viewbuffer','ogr')
 		print(viewBuff.isValid())
 
@@ -283,13 +283,13 @@ def run_script(iface):
 
 		# ################
 		# # OUTPUT RASTERS
-		def writeVirtualRaster():
+		def writeVirtualRaster(filenametif):
 
 			# First we need the list of filenames from the buffer intersect with the footprint file
 			squares = [feature for feature in footprint.getFeatures() if feature.geometry().intersects(bigBuff.geometry())]
 
 			#This is where the filename/grid ref is.
-			#print(len(squares))#41! Just checked by eye, that's correct.
+			print('Number of DEM squares in this buffer: ' + str(len(squares)))
 
 			#Create virtual raster from the list of filenames
 			#Note, this is unicode: print(type(squares[0].attributes()[4]))
@@ -302,135 +302,57 @@ def run_script(iface):
 				for square in squares]
 
 			#Use turbine feature ID as reference
-			filename = ('ViewShedJava/SimpleViewShed/data/rasters/' +
-			str(buffr.id()) + 
-			'.vrt')
-
-			filenametif = ('ViewShedJava/SimpleViewShed/data/rasters/' +
-			str(buffr.id()) + 
-			'.tif')
+			#And add 
+			# filename = ('ViewShedJava/SimpleViewShed/data/rasters/' +
+			# str(buffr.id()) + 
+			# '.vrt')
 
 			#Oh good - can take lists too!
 			#processing.runalg('gdalogr:buildvirtualraster', listOfFiles, 0, False, False, filename)
 			#Output direct to merged tif
 			processing.runalg('gdalogr:merge', listOfFiles, False, False, 5, filenametif)
+
+			#Reload the tif to get the coordinate metadata and write into the filename
+			#Cos trying to get it in Java is horrific
+
 		
 
 		before = time.time()
-		writeVirtualRaster()
-		print(str('raster' + str(buffr.id())) + ':' + str(time.time() - before))
 
-		
+		filenametif = ('ViewShedJava/SimpleViewShed/data/rasters/' +
+			str(buffr.id()) + 
+			'.tif')
 
+		#print filenametif
 
+		#writeVirtualRaster(filenametif)
+		print(str('raster ' + str(buffr.id())) + ': ' + str(time.time() - before) + ' seconds to merge')
 
+		#reload to get coord metadata, store in own file
+		raster = QgsRasterLayer(filenametif,'getcoords')
+		#raster = QgsRasterLayer('C:/Data/WindFarmViewShed/Tests/PythonTests/testData/rasters/NJ73NE.tif','test')
+		print raster.isValid()
 
+		# index = 0
 
+		# for line in lines:
+		# 	print str(index) + ': ' + line
+		# 	index += 1
+		# print raster.metadata()
 
-		##############
-		# CUTTINZ
-		###########################################
-		# GET HOUSES WITHIN THE TURBINE BUFFER ZONE
-		# def getHousesInBufferZone():		
+		#line 30 for extent coords
+		#bottom-left : top-right
+		lines = raster.metadata().splitlines()
+		#We just need bottom left
+		line = lines[30].split(":")[0]
+		# #strip out <p> tag
+		line  = line.replace('<p>','')
 
-		# 	#Use spatial index made above to get bounding box of housing data quickly
-		# 	#Before subsetting
-		# 	ids = index.intersects(buffr.geometry().boundingBox())
+		# print line
 
-		# 	#for saving
-		# 	layername = ('housesInBuffer' + str(buffr.id()))
-
-		# 	#Use those IDs to make a new layer
-		# 	housesInBox = QgsVectorLayer('Point?crs=EPSG:27700', layername, 'memory')
-
-		# 	pr = housesInBox.dataProvider()
-		# 	#f = houses.
-
-		# 	#set fields to match original
-		# 	pr.addAttributes([QgsField('field_1',QVariant.String),
-		# 		QgsField('Title.numb',QVariant.String),
-		# 		QgsField('Eastings',QVariant.String),
-		# 		QgsField('Northings',QVariant.String)
-		# 		])
-
-		# 	housesInBox.updateFields()
-
-		# 	#Get the houses in the bounding box by feature id that we should got from the spatial index check
-		# 	#http://gis.stackexchange.com/questions/130439/how-to-efficiently-access-the-features-returned-by-qgsspatialindex
-		# 	request = QgsFeatureRequest()	
-		# 	request.setFilterFids(ids)
-
-		# 	subsetHouses = houses.getFeatures(request)
-		# 	blob = [feature for feature in subsetHouses]
-
-		# 	#Add those features to housesInBox layer
-		# 	pr.addFeatures(blob)
-			
-		# 	# housesInBox.updateExtents()
-		# 	# QgsMapLayerRegistry.instance().addMapLayers([housesInBox])
-
-		# 	#saga:clippointswithpolygons won't work without layers added to registry
-		# 	# processing.runalg('saga:clippointswithpolygons',housesInBox,buffLyr,'points',0,
-		# 	#  	'C:/Data/WindFarmViewShed/Tests/PythonTests/testOutput/testPiP.shp')
-
-		# 	housesInBuffer = QgsVectorLayer('Point?crs=EPSG:27700', 'housesInBuffer', 'memory')
-		# 	pr = housesInBuffer.dataProvider()
-
-		# 	#set fields to match original
-		# 	pr.addAttributes([QgsField('field_1',QVariant.String),
-		# 		QgsField('Title.numb',QVariant.String),
-		# 		QgsField('Eastings',QVariant.String),
-		# 		QgsField('Northings',QVariant.String)
-		# 		])
-
-		# 	housesInBuffer.updateFields()
-			
-		# 	#So let's use geometry intersect instead.
-
-		# 	# for feature in housesInBox.getFeatures():
-		# 	# 	if feature.geometry().intersects(buffr):
-		# 	# 		pr.addFeatures([feature])
-
-		# 	#should be 433 points... yup!
-		# 	#print(housesInBuffer.featureCount())
-
-		# 	#Now can I do that in one line? Yup!
-		# 	features = [feature for feature in housesInBox.getFeatures() if feature.geometry().intersects(buffr.geometry())]
-
-		# 	print('Number of houses in this turbine buffer: ' + str(len(features)))
-			
-		# 	pr.addFeatures(features)
-
-		# 	return(housesInBuffer)
-
-
-		
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	
-
-
-
-
-	
+		# write in own file
+		text_file = open(
+			"C:/Data/WindFarmViewShed/ViewShedJava/SimpleViewShed/data/coords/" + str(buffr.id()) + ".txt",
+			"w")
+		text_file.write(line)
+		text_file.close()

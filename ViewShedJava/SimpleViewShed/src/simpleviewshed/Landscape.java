@@ -8,17 +8,26 @@ package simpleviewshed;
 import java.awt.Color;
 import java.awt.image.*;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.metadata.IIOMetadata;
+import javax.imageio.stream.ImageInputStream;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 /**
  *
  * @author Dan Olner
  */
-public class Images {
+public class Landscape {
 
     public static int width, height;
+    public static int[] origin = {-1,-1};    
 
-    public static float[][] readTiff() {
+    public static float[][] readTiff(int fileNum) {
 
         BufferedImage image = new BufferedImage(1, 1, 1);
 
@@ -31,7 +40,7 @@ public class Images {
 //            image = ImageIO.read(new File("rasters/testSingleTile2.tif"));
 //            image = ImageIO.read(new File("rasters/bigRasterFromMultiBuffer.tif"));
 //            image = ImageIO.read(new File("rasters/bigRasterFromMultiBuffer2.tif"));
-            image = ImageIO.read(new File("data/rasters/3.tif"));
+            image = ImageIO.read(new File("data/rasters/" + fileNum + ".tif"));
 
             //RGB outputs as a 32 bit int. We want 32 bit float.
 //            float fl = Float.intBitsToFloat(i);
@@ -41,6 +50,7 @@ public class Images {
             System.out.println("uh oh: " + e.getLocalizedMessage());
         }
 
+        //System.out.println("Image info: " + image.);
         width = image.getWidth();
         height = image.getHeight();
 
@@ -50,7 +60,7 @@ public class Images {
 //        int i = image.getRGB(1000, 1000);
 //        System.out.println("RGB: " + i);
         Raster r = image.getData();
-
+        
         //Pixels are 32 bit float encoded, metres above sea level
 //        float[] pix = r.getPixel(2001, 0, (float[]) null);
 //
@@ -80,7 +90,7 @@ public class Images {
 
                 //http://stackoverflow.com/questions/27633299/bufferedimage-type-byte-binary-change-color-of-pixel
                 output.setRGB(i, j, bits[i][j] ? Color.WHITE.getRGB() : Color.BLACK.getRGB());
-                
+
             }
         }
 
@@ -96,6 +106,26 @@ public class Images {
 
         return true;
 
+    }
+
+    //http://stackoverflow.com/questions/5386991/java-most-efficient-method-to-iterate-over-all-elements-in-a-org-w3c-dom-docume
+    private static List<Node> asList(NodeList nodes) {
+        List<Node> list = new ArrayList<Node>(nodes.getLength());
+        for (int i = 0, l = nodes.getLength(); i < l; i++) {
+            list.add(nodes.item(i));
+        }
+        return list;
+    }
+
+    private static List<Node> getChildren(Node n) {
+        List<Node> children = asList(n.getChildNodes());
+        Iterator<Node> it = children.iterator();
+        while (it.hasNext()) {
+            if (it.next().getNodeType() != Node.ELEMENT_NODE) {
+                it.remove();
+            }
+        }
+        return children;
     }
 
 }
