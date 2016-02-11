@@ -7,7 +7,6 @@ package simpleviewshed;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
-import java.util.ArrayList;
 
 /**
  *
@@ -66,7 +65,7 @@ public class DataInput {
                 y = Landscape.height - y;
                 
 
-                data.points.add(DataStore.createPoint(pointType, line, x, y));
+                data.points.add(DataStore.createPoint(pointType, line, x, y, Main.raster[x][y]));
 //                data.points.add(DataStore.createPoint(pointType, line,
 //                        (int) Float.parseFloat(cells[xFieldIndex]),
 //                        (int) Float.parseFloat(cells[yFieldIndex])

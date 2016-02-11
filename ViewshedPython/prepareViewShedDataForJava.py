@@ -26,7 +26,7 @@ def run_script(iface):
 
 	######################
 	#load houses
-	houses = QgsVectorLayer('C:/Data/WindFarmViewShed/Tests/PythonTests/testData/rawGeocodedNewRoS.shp','houses','ogr')
+	houses = QgsVectorLayer('C:/Data/WindFarmViewShed/Tests/PythonTests/testData/rawGeocodedNewRoS2.shp','houses','ogr')
 	print(houses.isValid())
 
 	# for field in houses.fields():

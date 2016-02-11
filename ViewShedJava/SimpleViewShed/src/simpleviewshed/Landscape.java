@@ -12,9 +12,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
-import javax.imageio.metadata.IIOMetadata;
-import javax.imageio.stream.ImageInputStream;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
@@ -72,7 +69,8 @@ public class Landscape {
 
         for (int i = 0; i < image.getWidth(); i++) {
             for (int j = 0; j < image.getHeight(); j++) {
-                pixels[i][j] = r.getPixel(i, j, (float[]) null)[0];
+                //NOTE: DIVIDED BY 5. Scaling down to match rest of data
+                pixels[i][j] = r.getPixel(i, j, (float[]) null)[0]/5;
             }
         }
 

@@ -5,35 +5,32 @@
  */
 package simpleviewshed;
 
+import java.awt.geom.Point2D;
+import javax.vecmath.Point3d;
+
 /**
  *
  * @author Dan Olner
  */
-public abstract class Point {
-    
-    //Data output will include the input attributes
-    //Stored as a single string
-    //Field names will be the same for all
-    //public static String fieldNames;
-    public String attributes;
-    
-    int id, xloc, yloc;
-    
-//    public Point(int id, int xloc, int yloc, boolean amISeen) {
-//        this.id = id;
-//        this.xloc = xloc;
-//        this.yloc = yloc;
-//        this.amISeen = amISeen;
-//    }
+public abstract class Point extends Point3d {
 
-    public Point(String attributes, int xloc, int yloc) {
+    public String attributes;
+    //Mirror 2D point for 2D dist calcs
+    public Point2D.Double twoDLocation;
+
+    public Point(String attributes, double x, double y, double z) {
+
+        super(x, y, z);
+        
+        //set mirror Point2D for 2D calcs
+        twoDLocation = new Point2D.Double(x, y);
+
         this.attributes = attributes;
-        this.xloc = xloc;
-        this.yloc = yloc;
+
     }
 
     public abstract String writeDataToCSV();
-    
+
     public abstract String[] getExtraFieldNames();
-    
+
 }

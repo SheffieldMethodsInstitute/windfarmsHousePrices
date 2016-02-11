@@ -28,12 +28,12 @@ public class DataStore {
     /**
      * Factory-ish code
      */
-    public static Point createPoint(String type, String attributes, int xloc, int yloc){
+    public static Point createPoint(String type, String attributes, int xloc, int yloc, float zloc){
         
         if(type.equals("Target")){
-            return new TargetPoint(attributes, xloc, yloc);
+            return new TargetPoint(attributes, xloc, yloc, zloc);
         } else if(type.equals("Observer")){
-            return new ObserverPoint(attributes, xloc, yloc);
+            return new ObserverPoint(attributes, xloc, yloc, zloc);
         }
         
         return null;

@@ -15,7 +15,7 @@ import java.util.Random;
  */
 public class Main {
 
-    float[][] raster;
+    static float[][] raster;
     boolean[][] viewShed;
     //BresenhamLine results
     ArrayList<Float> heights;
@@ -25,8 +25,8 @@ public class Main {
 
     Ellipse2D viewCircle;
     int observerX, observerY, targetX, targetY;
-    //scale down by five
-    float radius = 15000 / 5;
+    //will need to be scaled down by five but leave here for distance band calcs
+    static float radius = 15000;
 
     boolean canISeeYou = false;
 
@@ -37,58 +37,41 @@ public class Main {
 
     public Main() {
 
-        //VERY IMPORTANT NOTE AT TOP!
-        //OS Terrain 5 data is all 5 metre grids. This code as it stands HARD-CODES for that
-        //Arrays/lines etc are all naturally 1-unit, of course. So values are converted:
-        //e.g. 100 metre observe point is 100/5, same for target.
-        //And most importantly: in the BresenhamLine class, the raster height value
-        //Is divided by 5 *AS IT'S BEING COPIED INTO THE LINE ARRAY*.
-        //Basically, everything is 1/5th scale to make array work easy 
-        //- which national grid also makes easy by using metric
-        //That's just the sort of thing I'd forget and have to spend a day tracking down.
-        //
-        long before = System.currentTimeMillis();
+        testIndexCount();
 
-        int fileNum = 3;
-
-        raster = Landscape.readTiff(fileNum);
-
-        System.out.println("Raster load time: " + ((System.currentTimeMillis() - before) / 1000) + " secs");
-        //Load raster coordinate reference
-        try {
-
-            Landscape.origin = DataInput.loadCoords(fileNum);
-
-        } catch (Exception e) {
-            System.out.println("coord load failz: " + e.getLocalizedMessage());
-        }
-
-        System.out.println("origin: " + Landscape.origin[0] + "," + Landscape.origin[1]);
-
-        try {
-            targets = DataInput.loadData("data/targets/" + fileNum + ".csv", "Target", 2, 3);
-//            targets = DataInput.loadData("data/targets/1.csv", "Target", 2, 3);
-        } catch (Exception e) {
-            System.out.println("Target load fail: " + e.getMessage());
-        }
-
-        //System.out.println(Point.fieldNames);
-//        for (Point t : targets.points) {//
-//            System.out.println("Target: " + t.attributes + "; stored locations: " + t.xloc + "," + t.yloc);//
+//        loadAllData();
+//
+//        interViz();
+//
+//        try {
+//            DataOutput.outputData(targets, "data/singleTurbineDistanceTestinz2.csv");
+//        } catch (Exception e) {
+//            System.out.println("Data output booboo: " + e);
 //        }
-        try {
-            observers = DataInput.loadData("data/observers/" + fileNum + ".csv", "Observer", 2, 3);
-//            targets = DataInput.loadData("data/targets/1.csv", "Target", 2, 3);
-        } catch (Exception e) {
-            System.out.println("Observer load fail: " + e.getMessage());
-        }
+    }
 
-        interViz();
+    private void testIndexCount() {
 
-        try {
-            DataOutput.outputData(targets, "data/housingTarget3.csv");
-        } catch (Exception e) {
-            System.out.println("Data output booboo: " + e);
+        //Making sure distance band array index increment does what it should
+        //First, is this the right number of indices e.g. if view radius is 15km?
+        //0-1 / 1-2 / ... / 14-15km
+        int visibleObsDistanceBandCounts[] = new int[(int) radius / 1000];
+
+        //Yup.
+        System.out.println("index num: " + visibleObsDistanceBandCounts.length);
+
+        //Then - can distance be simply converted to int to find the right one?
+        Random randDist = new Random(1);
+
+        for (double d = 0; d < radius; d += (randDist.nextDouble() * 20)) {
+            
+            int index = (int) d/1000;
+            
+            visibleObsDistanceBandCounts[index]++;
+            
+            //Yup!
+            System.out.println("distance: " + d + ", index: " + index);
+
         }
 
     }
@@ -98,13 +81,23 @@ public class Main {
         int obcount = 0;
         long before = System.currentTimeMillis();
 
+        ObserverPoint observer;
+
         for (Point ob : observers.points) {
 
-            //op = (ObserverPoint) ob;
-            observerX = ob.xloc;
-            observerY = ob.yloc;
+            observer = (ObserverPoint) ob;
 
-            viewCircle = new Ellipse2D.Float((float) observerX - radius, (float) observerY - radius, radius * 2, radius * 2);
+            //op = (ObserverPoint) ob;
+            observerX = (int) ob.x;
+            observerY = (int) ob.y;
+
+            //e.g. 15000 metres needs scaling down to 1 unit per 5 metres to match raster
+            float scaledRadius = radius / 5;
+
+            viewCircle = new Ellipse2D.Float(
+                    (float) observerX - scaledRadius,
+                    (float) observerY - scaledRadius,
+                    scaledRadius * 2, scaledRadius * 2);
 
             //subset targets in view circle - passing by reference, will update correctly
             targetsInView.clear();
@@ -116,7 +109,7 @@ public class Main {
 
                 p = (TargetPoint) target;
 
-                if (viewCircle.contains(p.xloc, p.yloc)) {
+                if (viewCircle.contains(p.x, p.y)) {
                     targetsInView.add(p);
                 }
             }
@@ -128,20 +121,27 @@ public class Main {
 //        for (int i = 0; i < targets.points.size(); i++) {
             for (TargetPoint target : targetsInView) {
 
-//                timer++;
-//
-//                if (timer % 5000 == 0) {
-//                    
-//                }
-                heights = BresenhamLine.findLine(raster, observerX, observerY, target.xloc, target.yloc);
+                heights = BresenhamLine.findLine(raster, observerX, observerY, (int) target.x, (int) target.y);
 
                 //            lineOfSight = getLineOfSight(100, 2);
                 //Oops: 5 metre units. That was a half-km high turbine and 10 metre high human!
                 lineOfSight = getLineOfSight(20, 0.2f);
 
-                target.amISeen = canISeeYou();
+                if (canISeeYou()) {
+                    //Hard-coding the ID for now
+                    target.ICanSeeThisObserver.add(observer.id);
+                }
 
-//            }//end if viewcircle contains
+                //Distance from observer to target, both along ground and accounting for height
+                //Scale back up to metres again!
+                target.distance2D = target.twoDLocation.distance(ob.twoDLocation) * 5;
+                //target.distance3D = target.distance(ob) * 5;
+
+                //Add distance to observer, regardless of visible or not
+                //Just use 2d distance for now
+                //Order will match observer file order
+                target.distanceToObservers2D.add(target.twoDLocation.distance(ob.twoDLocation) * 5);
+
             }
 
             System.out.println("observer " + ++obcount + ": " + observerX + "," + observerY
@@ -343,6 +343,66 @@ public class Main {
 
         return line;
 
+    }
+
+    private void loadAllData() {
+
+        //VERY IMPORTANT NOTE AT TOP!
+        //OS Terrain 5 data is all 5 metre grids. This code as it stands HARD-CODES for that
+        //Arrays/lines etc are all naturally 1-unit, of course. So values are converted:
+        //e.g. 100 metre observe point is 100/5, same for target.
+        //And most importantly: in the BresenhamLine class, the raster height value
+        //Is divided by 5 *AS IT'S BEING COPIED INTO THE LINE ARRAY*.
+        //Basically, everything is 1/5th scale to make array work easy 
+        //- which national grid also makes easy by using metric
+        //That's just the sort of thing I'd forget and have to spend a day tracking down.
+        //
+        long before = System.currentTimeMillis();
+
+        int fileNum = 3;
+
+        raster = Landscape.readTiff(fileNum);
+
+        System.out.println("Raster load time: " + ((System.currentTimeMillis() - before) / 1000) + " secs");
+        //Load raster coordinate reference
+        try {
+
+            Landscape.origin = DataInput.loadCoords(fileNum);
+
+        } catch (Exception e) {
+            System.out.println("coord load failz: " + e.getLocalizedMessage());
+        }
+
+        System.out.println("origin: " + Landscape.origin[0] + "," + Landscape.origin[1]);
+
+        try {
+            targets = DataInput.loadData("data/targets/" + fileNum + ".csv", "Target", 2, 3);
+//            targets = DataInput.loadData("data/targets/1.csv", "Target", 2, 3);
+        } catch (Exception e) {
+            System.out.println("Target load fail: " + e.getMessage());
+        }
+
+        //System.out.println(Point.fieldNames);
+//        for (Point t : targets.points) {//
+//            System.out.println("Target: " + t.attributes + "; stored locations: " + t.xloc + "," + t.yloc);//
+//        }
+        try {
+
+            observers = DataInput.loadData("data/observers/" + fileNum + ".csv", "Observer", 2, 3);
+//            observers = DataInput.loadData("data/observers/singleTurbine.csv", "Observer", 2, 3);
+
+        } catch (Exception e) {
+            System.out.println("Observer load fail: " + e.getMessage());
+        }
+
+        //test with single turbine
+        //Nice! http://stackoverflow.com/questions/3099527/how-to-remove-everything-from-an-arraylist-in-java-but-the-first-element
+        //Clear out all elements not wanted, leaving the first
+        //observers.points.subList(1, observers.points.size()).clear();
+//        System.out.println("single turbine: " + observers.points.get(0).attributes);
+//        for(Point p : observers.points) {
+//            System.out.println("turbine: " + p.attributes);
+//        }
     }
 
     /**

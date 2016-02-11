@@ -90,8 +90,8 @@ public class BresenhamLine {
 
         while (true) {
             
-//            line.add(grid[currentX][currentY]);
-            line.add(grid[currentX][currentY]/5f);
+            line.add(grid[currentX][currentY]);
+//            line.add(grid[currentX][currentY]/5f);
             
 //            System.out.println("grid: " + grid[currentX][currentY] + ", grid/5: " + grid[currentX][currentY]/5f);
 

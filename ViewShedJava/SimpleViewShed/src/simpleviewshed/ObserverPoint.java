@@ -12,11 +12,21 @@ package simpleviewshed;
  */
 public class ObserverPoint extends Point {
     
-    //boolean amISeen = false;
+    String id;
+//    public ObserverPoint(String attributes, int xloc, int yloc) {
+//        super(attributes, xloc, yloc);
+//    }
 
-    public ObserverPoint(String attributes, int xloc, int yloc) {
-        super(attributes, xloc, yloc);
+    public ObserverPoint(String attributes, double xloc, double yloc, double zloc) {
+        super(attributes, xloc, yloc, zloc);
+        
+        //hard-coding ID for now, assume in first column
+        id = attributes.trim().split(",")[0];
+        //System.out.println("set ob id to: " + id);
+        
     }
+    
+    
 
     @Override
     public String writeDataToCSV() {
