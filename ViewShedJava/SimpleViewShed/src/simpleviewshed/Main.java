@@ -33,45 +33,19 @@ public class Main {
 //    ArrayList<Point> observers = new ArrayList<Point>();
 //    ArrayList<Point> targets = new ArrayList<Point>();
     DataStore targets, observers;
-    ArrayList<TargetPoint> targetsInView = new ArrayList<>();
+    ArrayList<TargetPoint> targetsInRadius = new ArrayList<>();
 
     public Main() {
 
-        testIndexCount();
+//        testIndexCount();
+        loadAllData();
 
-//        loadAllData();
-//
-//        interViz();
-//
-//        try {
-//            DataOutput.outputData(targets, "data/singleTurbineDistanceTestinz2.csv");
-//        } catch (Exception e) {
-//            System.out.println("Data output booboo: " + e);
-//        }
-    }
+        interViz();
 
-    private void testIndexCount() {
-
-        //Making sure distance band array index increment does what it should
-        //First, is this the right number of indices e.g. if view radius is 15km?
-        //0-1 / 1-2 / ... / 14-15km
-        int visibleObsDistanceBandCounts[] = new int[(int) radius / 1000];
-
-        //Yup.
-        System.out.println("index num: " + visibleObsDistanceBandCounts.length);
-
-        //Then - can distance be simply converted to int to find the right one?
-        Random randDist = new Random(1);
-
-        for (double d = 0; d < radius; d += (randDist.nextDouble() * 20)) {
-            
-            int index = (int) d/1000;
-            
-            visibleObsDistanceBandCounts[index]++;
-            
-            //Yup!
-            System.out.println("distance: " + d + ", index: " + index);
-
+        try {
+            DataOutput.outputData(targets, "data/distanceBandTestinz_higherOb.csv");
+        } catch (Exception e) {
+            System.out.println("Data output booboo: " + e);
         }
 
     }
@@ -80,6 +54,7 @@ public class Main {
 
         int obcount = 0;
         long before = System.currentTimeMillis();
+        double distance2D;
 
         ObserverPoint observer;
 
@@ -100,7 +75,7 @@ public class Main {
                     scaledRadius * 2, scaledRadius * 2);
 
             //subset targets in view circle - passing by reference, will update correctly
-            targetsInView.clear();
+            targetsInRadius.clear();
             TargetPoint p;
 
             System.out.println("Houses total: " + targets.points.size());
@@ -110,37 +85,57 @@ public class Main {
                 p = (TargetPoint) target;
 
                 if (viewCircle.contains(p.x, p.y)) {
-                    targetsInView.add(p);
+                    targetsInRadius.add(p);
                 }
             }
 
-            System.out.println("houses subset in 15km view: " + targetsInView.size());
+            System.out.println("houses subset in 15km view: " + targetsInRadius.size());
 
             int timer = 0;
 
 //        for (int i = 0; i < targets.points.size(); i++) {
-            for (TargetPoint target : targetsInView) {
+            for (TargetPoint target : targetsInRadius) {
 
                 heights = BresenhamLine.findLine(raster, observerX, observerY, (int) target.x, (int) target.y);
 
                 //            lineOfSight = getLineOfSight(100, 2);
                 //Oops: 5 metre units. That was a half-km high turbine and 10 metre high human!
-                lineOfSight = getLineOfSight(20, 0.2f);
+                lineOfSight = getLineOfSight((100f/5f), (2f/5f));
+
+                distance2D = target.twoDLocation.distance(ob.twoDLocation) * 5;
+
+                if (distance2D < target.distanceToNearest) {
+                    target.distanceToNearest = distance2D;
+                }
+
+                //Count of all distances in 1km distance bands
+                //see testIndexCount method
+                target.allObsDistanceBandCounts[(int) distance2D / 1000]++;
 
                 if (canISeeYou()) {
+
+                    target.amISeen = true;
+
+                    if (distance2D < target.distanceToNearestVisible) {
+                        target.distanceToNearestVisible = distance2D;
+                    }
+
                     //Hard-coding the ID for now
                     target.ICanSeeThisObserver.add(observer.id);
+
+                    //Count of lines of sight 1km per distance band
+                    //see testIndexCount method
+                    target.visibleObsDistanceBandCounts[(int) distance2D / 1000]++;
+
                 }
 
                 //Distance from observer to target, both along ground and accounting for height
                 //Scale back up to metres again!
-                target.distance2D = target.twoDLocation.distance(ob.twoDLocation) * 5;
                 //target.distance3D = target.distance(ob) * 5;
-
                 //Add distance to observer, regardless of visible or not
                 //Just use 2d distance for now
                 //Order will match observer file order
-                target.distanceToObservers2D.add(target.twoDLocation.distance(ob.twoDLocation) * 5);
+                target.distanceToObservers2D.add(distance2D);
 
             }
 
@@ -148,6 +143,32 @@ public class Main {
                     + ", time: " + ((System.currentTimeMillis() - before) / 1000) + " secs");
 
         }//for ob points
+
+    }
+
+    private void testIndexCount() {
+
+        //Making sure distance band array index increment does what it should
+        //First, is this the right number of indices e.g. if view radius is 15km?
+        //0-1 / 1-2 / ... / 14-15km
+        int visibleObsDistanceBandCounts[] = new int[(int) radius / 1000];
+
+        //Yup.
+        System.out.println("index num: " + visibleObsDistanceBandCounts.length);
+
+        //Then - can distance be simply converted to int to find the right one?
+        Random randDist = new Random(1);
+
+        for (double d = 0; d < radius; d += (randDist.nextDouble() * 20)) {
+
+            int index = (int) d / 1000;
+
+            visibleObsDistanceBandCounts[index]++;
+
+            //Yup!
+            System.out.println("distance: " + d + ", index: " + index);
+
+        }
 
     }
 
@@ -192,7 +213,8 @@ public class Main {
 
 //            lineOfSight = getLineOfSight(100, 2);
             //Oops: 5 metre units. That was a half-km high turbine and 10 metre high human!
-            lineOfSight = getLineOfSight(20, 0.2f);
+//            lineOfSight = getLineOfSight(20, 0.2f);
+            lineOfSight = getLineOfSight(21, 0.2f);
 
             //do bespoke coordinate conversion to match raster in QGIS
             targetX = 235000 + (targetX * 5);
@@ -261,22 +283,26 @@ public class Main {
     }
 
     private boolean canISeeYou() {
+        
+//        System.out.println("------------");
 
         //If any points on same line point are higher on the landscape
         //My view is blocked
         for (int i = 0; i < heights.size(); i++) {
 //        for (int i = 0; i < fheights.length; i++) {
+            
+//            System.out.println(lineOfSight[i] + ":" + heights.get(i));
 
             //Will need to check this still works if ob and target height are zero
             if (heights.get(i) > lineOfSight[i]) {
 //            if (fheights[i] > lineOfSight[i]) {
-                //System.out.println("can't see. Height here: " + heights.get(i) + );
+//                System.out.println("can't see. Height here: " + heights.get(i));
 
                 return false;
             }
 
         }
-
+//        System.out.println("can't see. Height here: " + heights.get(i));
         return true;
 
     }
@@ -359,7 +385,7 @@ public class Main {
         //
         long before = System.currentTimeMillis();
 
-        int fileNum = 3;
+        int fileNum = 1;
 
         raster = Landscape.readTiff(fileNum);
 
@@ -382,6 +408,9 @@ public class Main {
             System.out.println("Target load fail: " + e.getMessage());
         }
 
+        //test with single target
+//        targets.points.subList(1, targets.points.size()).clear();
+//        System.out.println("single target: " + targets.points.get(0).attributes);
         //System.out.println(Point.fieldNames);
 //        for (Point t : targets.points) {//
 //            System.out.println("Target: " + t.attributes + "; stored locations: " + t.xloc + "," + t.yloc);//
@@ -398,8 +427,9 @@ public class Main {
         //test with single turbine
         //Nice! http://stackoverflow.com/questions/3099527/how-to-remove-everything-from-an-arraylist-in-java-but-the-first-element
         //Clear out all elements not wanted, leaving the first
-        //observers.points.subList(1, observers.points.size()).clear();
-//        System.out.println("single turbine: " + observers.points.get(0).attributes);
+//        observers.points.subList(1, observers.points.size()).clear();
+//        System.out.println("single observer: " + observers.points.get(0).attributes);
+
 //        for(Point p : observers.points) {
 //            System.out.println("turbine: " + p.attributes);
 //        }
