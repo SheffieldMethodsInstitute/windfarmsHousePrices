@@ -14,13 +14,21 @@ import os
 
 def run_script(iface):
 
+	#time whole thing
+	start = time.time()
+
 	print(os.chdir('C:/Data/WindFarmViewShed'))
 
 	#print(processing.alglist('buffer'))
 
 	#load turbines
+	# turbines = QgsVectorLayer(
+	# 	'C:/Data/WindFarmViewShed/Tests/PythonTests/testData/groupsOfTurbinesInDiffLocations.shp',
+	# 	'turbines','ogr')
+	# print(turbines.isValid())
+
 	turbines = QgsVectorLayer(
-		'C:/Data/WindFarmViewShed/Tests/PythonTests/testData/groupsOfTurbinesInDiffLocations.shp',
+		'C:/Data/WindFarmViewShed/Tests/PythonTests/testData/turbineInNameAll.shp',
 		'turbines','ogr')
 	print(turbines.isValid())
 
@@ -286,7 +294,9 @@ def run_script(iface):
 		def writeVirtualRaster(filenametif):
 
 			# First we need the list of filenames from the buffer intersect with the footprint file
-			squares = [feature for feature in footprint.getFeatures() if feature.geometry().intersects(bigBuff.geometry())]
+			squares = [feature for feature in footprint.getFeatures() 
+				if feature.geometry().intersects(bigBuff.geometry())
+				and feature.attributes()[4] != NULL]
 
 			#This is where the filename/grid ref is.
 			print('Number of DEM squares in this buffer: ' + str(len(squares)))
@@ -300,6 +310,11 @@ def run_script(iface):
 				(square.attributes()[4].encode('ascii','ignore') + 
 				'.asc') 
 				for square in squares]
+
+			#print "list of DEM files we're gonna attempt to get:"
+
+			# for file in listOfFiles:
+			# 	print file
 
 			#Use turbine feature ID as reference
 			#And add 
@@ -325,12 +340,12 @@ def run_script(iface):
 
 		#print filenametif
 
-		#writeVirtualRaster(filenametif)
+		writeVirtualRaster(filenametif)
+
 		print(str('raster ' + str(buffr.id())) + ': ' + str(time.time() - before) + ' seconds to merge')
 
 		#reload to get coord metadata, store in own file
 		raster = QgsRasterLayer(filenametif,'getcoords')
-		#raster = QgsRasterLayer('C:/Data/WindFarmViewShed/Tests/PythonTests/testData/rasters/NJ73NE.tif','test')
 		print raster.isValid()
 
 		# index = 0
@@ -356,3 +371,6 @@ def run_script(iface):
 			"w")
 		text_file.write(line)
 		text_file.close()
+
+
+	print('total time: ' + str((time.time() - start)/60) + ' minutes')

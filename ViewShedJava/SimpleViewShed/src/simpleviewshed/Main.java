@@ -6,7 +6,11 @@
 package simpleviewshed;
 
 import java.awt.geom.Ellipse2D;
+import java.io.File;
+import java.io.FilenameFilter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 
 /**
@@ -37,16 +41,36 @@ public class Main {
 
     public Main() {
 
-//        testIndexCount();
-        loadAllData();
+        //can be any of the three data folders, just need to get the number of files in there
+        File folder = new File("data/observers");
+//        File[] listOfFiles = folder.listFiles();
 
-        interViz();
+        //http://stackoverflow.com/questions/2102952/listing-files-in-a-directory-matching-a-pattern-in-java
+        List<File> list = Arrays.asList(folder.listFiles(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                return name.endsWith(".csv"); // or something else
+            }
+        }));
 
-        try {
-            DataOutput.outputData(targets, "data/distanceBandTestinz_higherOb.csv");
-        } catch (Exception e) {
-            System.out.println("Data output booboo: " + e);
-        }
+        System.out.println(list.size() + " file groups to process.");
+        
+        long startTime = System.currentTimeMillis();
+
+        for (int fileIndex = 1; fileIndex < list.size() + 1; fileIndex++) {
+
+            System.out.println("Loading fileset " + fileIndex + ", " + ((System.currentTimeMillis() - startTime) / 1000) + " seconds elapsed");
+            loadAllData(fileIndex);
+
+            interViz();
+
+            try {
+                DataOutput.outputData(targets, "data/output/" + fileIndex + ".csv");
+            } catch (Exception e) {
+                System.out.println("Data output booboo: " + e);
+            }
+            
+        }//end for
 
     }
 
@@ -67,7 +91,8 @@ public class Main {
             observerY = (int) ob.y;
 
             //e.g. 15000 metres needs scaling down to 1 unit per 5 metres to match raster
-            float scaledRadius = radius / 5;
+            //subtract 5cm too, in case a target is exactly on 15km. Which one has been...
+            float scaledRadius = (radius - 0.05f) / 5;
 
             viewCircle = new Ellipse2D.Float(
                     (float) observerX - scaledRadius,
@@ -100,7 +125,7 @@ public class Main {
 
                 //            lineOfSight = getLineOfSight(100, 2);
                 //Oops: 5 metre units. That was a half-km high turbine and 10 metre high human!
-                lineOfSight = getLineOfSight((100f/5f), (2f/5f));
+                lineOfSight = getLineOfSight((100f / 5f), (2f / 5f));
 
                 distance2D = target.twoDLocation.distance(ob.twoDLocation) * 5;
 
@@ -110,6 +135,12 @@ public class Main {
 
                 //Count of all distances in 1km distance bands
                 //see testIndexCount method
+//                if(distance2D /1000 == 15) {
+////                    System.out.println("this broke it! " + distance2D);
+//                    //It was exactly 15km. There should be none over that, so...
+//                    //substract 50cm. If anything is still over this, we'll know about it.
+//                    distance2D -= 0.5;
+//                }
                 target.allObsDistanceBandCounts[(int) distance2D / 1000]++;
 
                 if (canISeeYou()) {
@@ -283,16 +314,14 @@ public class Main {
     }
 
     private boolean canISeeYou() {
-        
-//        System.out.println("------------");
 
+//        System.out.println("------------");
         //If any points on same line point are higher on the landscape
         //My view is blocked
         for (int i = 0; i < heights.size(); i++) {
 //        for (int i = 0; i < fheights.length; i++) {
-            
-//            System.out.println(lineOfSight[i] + ":" + heights.get(i));
 
+//            System.out.println(lineOfSight[i] + ":" + heights.get(i));
             //Will need to check this still works if ob and target height are zero
             if (heights.get(i) > lineOfSight[i]) {
 //            if (fheights[i] > lineOfSight[i]) {
@@ -371,7 +400,7 @@ public class Main {
 
     }
 
-    private void loadAllData() {
+    private void loadAllData(int fileNum) {
 
         //VERY IMPORTANT NOTE AT TOP!
         //OS Terrain 5 data is all 5 metre grids. This code as it stands HARD-CODES for that
@@ -384,8 +413,6 @@ public class Main {
         //That's just the sort of thing I'd forget and have to spend a day tracking down.
         //
         long before = System.currentTimeMillis();
-
-        int fileNum = 1;
 
         raster = Landscape.readTiff(fileNum);
 
@@ -429,7 +456,6 @@ public class Main {
         //Clear out all elements not wanted, leaving the first
 //        observers.points.subList(1, observers.points.size()).clear();
 //        System.out.println("single observer: " + observers.points.get(0).attributes);
-
 //        for(Point p : observers.points) {
 //            System.out.println("turbine: " + p.attributes);
 //        }
