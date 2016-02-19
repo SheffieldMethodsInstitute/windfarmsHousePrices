@@ -16,7 +16,7 @@ Originally I planned to use a QGIS viewshed plugin (see below) for intervisibili
 
 * **doViewShed.py**: this is taken from [Zoran Cuckovic's QGIS viewshed analysis plugin](http://hub.qgis.org/projects/viewshed/wiki). Source code is in the plugin itself - I copied from there since I know it runs in QGIS, but there's also a [github repo](https://github.com/zoran14/viewshed). **doViewShedHack.py** is hacked in a couple of places (Search '#DANHACK': original line commented out, replacement after) to make it take QGIS layer objects directly, so it can be used in-code, rather than the QGIS layer references that the desktop app plugin uses.
 
-* **canHousesSeeTurbines.py** ) (runs in Scriptrunner): uses the hacked viewShed code to run intervisibility checks on the input data. Commented out call to viewshed will run a full viewshed.
+* **canHousesSeeTurbines.py** (runs in Scriptrunner): uses the hacked viewShed code to run intervisibility checks on the input data. Commented out call to viewshed will run a full viewshed.
 
 * **createVirtualRasters.py** (runs in Scriptrunner): creates virtual rasters to be used in previous step.
 
