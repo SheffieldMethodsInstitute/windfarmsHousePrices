@@ -79,6 +79,30 @@ def run_script(iface):
 	#They're all the same format, so...
 	matches = [match[:6] for match in matches]
 
+
+	#####
+	#Also, get a list of any grid squares we have for the building-height-added grid squares
+	#So we can add a flag to the layer telling us it's there
+	os.chdir("C:/Data/BuildingHeight_alpha")
+
+	matches_BHeight = []
+
+	#Keep only directory reference to folders that contain *.asc files
+	for root, dirnames, filenames in os.walk('rasters'):
+	    for filename in fnmatch.filter(filenames, '*.tif'):
+	        matches_BHeight.append(filename)
+
+  	#They should already be unique but let's check
+	#Yup! 4406 5km grid files.
+	#testUnique = set(matches)
+	#print(len(matches),len(testUnique))
+
+	#We just want the six-character grid ref name e.g. NY99SW
+	#They're all the same format, so...
+	matches_BHeight = [match[:6] for match in matches_BHeight]
+
+
+
 	#And now to deduce which grid polygon attribute each six-digit location refers to
 	#Then add to the appropriate field...
 	#All we need to get is the correct attribute index, but it's made a little fiddly
@@ -148,9 +172,19 @@ def run_script(iface):
 		#Check results.
 		#print("orig: ",square,"... 100km: ", fiveKM1, "... 10km adj: ", fiveKM2, "... corner adj: ", fiveKM3)
 
-		#Just need to add those two to get the final index ref.
-		index.append((fiveKM3[0] + fiveKM3[1], square))
+		#Attach a flag indicating whether a building height grid square is available for this square
+		#So is this square in the list of building height squares?
+		#Index into a tuple! Well!
+		#http://stackoverflow.com/questions/394809/does-python-have-a-ternary-conditional-operator
+		flag = (0,1)[square in matches_BHeight]
 
+		#Just need to add those two to get the final index ref.
+		index.append((fiveKM3[0] + fiveKM3[1], square, flag))
+
+
+
+	#for i in index:
+	#	print i
 
 	###########################
 	#OK, we have our index. Now add the correct ref to the shapefile obs
@@ -195,6 +229,12 @@ def run_script(iface):
 	layer = dataSource.GetLayer()
 	layer.CreateField(fldDef)
 
+	fldDef2 = ogr.FieldDefn('BH_flag', ogr.OFTInteger)
+	#fldDef.SetWidth(6) #6 char string width
+
+	#get layer and add the 2 fields:
+	layer.CreateField(fldDef2)
+
 	#http://gis.stackexchange.com/questions/74708/how-to-change-the-field-value-of-a-shapefile-using-gdal-ogr
 	#http://pcjericks.github.io/py-gdalogr-cookbook/layers.html#iterate-over-features
 
@@ -213,9 +253,16 @@ def run_script(iface):
 		
 		feature = layer.GetFeature(no[0])
 		feature.SetField("raster_ref", no[1])
+		feature.SetField("BH_flag", no[2])
 		layer.SetFeature(feature)
 
 		#print(feature.GetField("raster_ref"))
+
+
+
+	#While we're here, add in a flag if there's a building-height version of the grid square available
+
+
 
 
 	dataSource.Destroy()

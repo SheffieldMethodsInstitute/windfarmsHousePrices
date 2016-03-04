@@ -49,7 +49,7 @@ public class Main {
         List<File> list = Arrays.asList(folder.listFiles(new FilenameFilter() {
             @Override
             public boolean accept(File dir, String name) {
-                return name.endsWith(".csv"); // or something else
+                return name.endsWith(".csv"); 
             }
         }));
 
@@ -408,6 +408,8 @@ public class Main {
         //e.g. 100 metre observe point is 100/5, same for target.
         //And most importantly: in the BresenhamLine class, the raster height value
         //Is divided by 5 *AS IT'S BEING COPIED INTO THE LINE ARRAY*.
+        //(Or isn't, actually, any more. Must be doing it somewhere else.)
+        //
         //Basically, everything is 1/5th scale to make array work easy 
         //- which national grid also makes easy by using metric
         //That's just the sort of thing I'd forget and have to spend a day tracking down.

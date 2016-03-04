@@ -46,7 +46,8 @@ def run_script(iface):
 	
 	#If there's only one polygon part, it defaults to not being multipart but it doesn't break. 
 	#So. if testing, at least one turbine needs to be far enough away to make a multipart.
-	features = lyr.getFeatures(QgsFeatureRequest().setFilterExpression( u'"X" in (2138,1783,1936,2545)' ))
+	features = lyr.getFeatures(QgsFeatureRequest().setFilterExpression( u'"X" in (2138,2545)' ))
+	# features = lyr.getFeatures(QgsFeatureRequest().setFilterExpression( u'"X" in (2138,1783,1936,2545)' ))
 	# features = turbines.getFeatures(QgsFeatureRequest().setFilterExpression( u'"Location" = \'Wick\'' ))
 
 	pr.addFeatures([feature for feature in features])
@@ -61,7 +62,7 @@ def run_script(iface):
 	# 	'turbines','ogr')
 	# print(turbines.isValid())
 
-	QgsMapLayerRegistry.instance().addMapLayers([turbines])
+	#QgsMapLayerRegistry.instance().addMapLayers([turbines])
 
 	######################
 	#load houses
@@ -131,7 +132,7 @@ def run_script(iface):
 		'parts','ogr')
 	print(parts.isValid())
 
-	QgsMapLayerRegistry.instance().addMapLayers([parts])
+	#QgsMapLayerRegistry.instance().addMapLayers([parts])
 
 	#Just the one currently!
 	print(parts.featureCount())
@@ -332,7 +333,7 @@ def run_script(iface):
 
 		# ################
 		# # OUTPUT RASTERS
-		def writeVirtualRaster(filenametif):
+		def writeVirtualRaster(filenametif, bh_flag):
 
 			# First we need the list of filenames from the buffer intersect with the footprint file
 			squares = [feature for feature in footprint.getFeatures() 
@@ -346,16 +347,31 @@ def run_script(iface):
 			#Note, this is unicode: print(type(squares[0].attributes()[4]))
 			#convert unicode to string
 			#http://stackoverflow.com/questions/1207457/convert-a-unicode-string-to-a-string-in-python-containing-extra-symbols
-			listOfFiles = [
+			
+
+			if bh_flag:
+
+				listOfFiles = [
+					'C:/Data/Terrain5_OS_DEM_Scotland/Zips/allRasterFilesShared/' +
+					(square.attributes()[4].encode('ascii','ignore') + 
+					'.asc') if square.attributes()[5] == 0 else
+					'C:/Data/BuildingHeight_alpha/rasters/' +
+					(square.attributes()[4].encode('ascii','ignore') + 
+					'.tif')
+					for square in squares]
+
+			else:
+				listOfFiles = [
 				'C:/Data/Terrain5_OS_DEM_Scotland/Zips/allRasterFilesShared/' +
 				(square.attributes()[4].encode('ascii','ignore') + 
 				'.asc') 
 				for square in squares]
 
-			#print "list of DEM files we're gonna attempt to get:"
 
-			# for file in listOfFiles:
-			# 	print file
+			print "list of DEM files we're gonna attempt to get:"
+
+			for file in listOfFiles:
+				print file
 
 			#Use turbine feature ID as reference
 			#And add 
@@ -366,27 +382,52 @@ def run_script(iface):
 			#Oh good - can take lists too!
 			#processing.runalg('gdalogr:buildvirtualraster', listOfFiles, 0, False, False, filename)
 			#Output direct to merged tif
+
+
+			#Merge!
 			processing.runalg('gdalogr:merge', listOfFiles, False, False, 5, filenametif)
+
+
 
 			#Reload the tif to get the coordinate metadata and write into the filename
 			#Cos trying to get it in Java is horrific
 
 		
 
+		###########
+		# First DEM
 		before = time.time()
 
-		filenametif = ('ViewShedJava/SimpleViewShed/data/rasters/' +
+		filenametif1 = ('ViewShedJava/SimpleViewShed/data/rasters/' +
 			str(buffr.id()) + 
 			'.tif')
 
 		#print filenametif
 
-		writeVirtualRaster(filenametif)
+		#Flag is for "save with building height data where available"
+		writeVirtualRaster(filenametif1, False)
+		print(str('DEM raster ' + str(buffr.id())) + ': ' + str(time.time() - before) + ' seconds to merge')
 
-		print(str('raster ' + str(buffr.id())) + ': ' + str(time.time() - before) + ' seconds to merge')
 
+		########
+		#Re-run again for building height version
+		before = time.time()
+
+		filenametif2 = ('ViewShedJava/SimpleViewShed/data/rasters_w_buildingheight/' +
+			str(buffr.id()) + 
+			'.tif')
+
+		#print filenametif
+
+		#Flag is for "save with building height data where available"
+		writeVirtualRaster(filenametif2, True)
+		print(str('DEM-plus-buildings raster ' + str(buffr.id())) + ': ' + str(time.time() - before) + ' seconds to merge')
+
+
+		#############
 		#reload to get coord metadata, store in own file
-		raster = QgsRasterLayer(filenametif,'getcoords')
+		#Use non-building-height version as we'll also get DEM info while here
+		raster = QgsRasterLayer(filenametif1,'getcoords')
 		print raster.isValid()
 
 		# index = 0

@@ -1,5 +1,5 @@
 
-filenames <- Sys.glob("C:/Users/SMI2/Dropbox/java/SimpleViewShed/data/lineofsight/*.csv")
+filenames <- Sys.glob("C:/Data/WindFarmViewShed/ViewShedJava/SimpleViewShed/data/lineofsight/*.csv")
 
 count = 0
 
@@ -9,7 +9,7 @@ for (f in filenames) {
   
   #ht <- read.csv("C:/Data/temp/viewshcheck.csv")
   
-  jpeg(paste0('C:/Users/SMI2/Dropbox/java/SimpleViewShed/data/lineofsight/images/',count,'.jpg'))
+  jpeg(paste0('C:/Data/WindFarmViewShed/ViewShedJava/SimpleViewShed/data/lineofsight/images',count,'.jpg'))
   
   count = count + 1
   
