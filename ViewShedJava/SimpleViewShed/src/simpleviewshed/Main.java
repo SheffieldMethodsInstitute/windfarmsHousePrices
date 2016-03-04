@@ -19,7 +19,8 @@ import java.util.Random;
  */
 public class Main {
 
-    static float[][] raster;
+    //bh_raster is same but with building heights added. Will use both where possible.
+    static float[][] raster, bh_raster;
     boolean[][] viewShed;
     //BresenhamLine results
     ArrayList<Float> heights;
@@ -431,7 +432,9 @@ public class Main {
         System.out.println("origin: " + Landscape.origin[0] + "," + Landscape.origin[1]);
 
         try {
-            targets = DataInput.loadData("data/targets/" + fileNum + ".csv", "Target", 2, 3);
+            //last integers: column index of eastings/northings
+            //-1: ignore height column, default to 2m
+            targets = DataInput.loadData("data/targets/" + fileNum + ".csv", "Target", 2, 3, -1);
 //            targets = DataInput.loadData("data/targets/1.csv", "Target", 2, 3);
         } catch (Exception e) {
             System.out.println("Target load fail: " + e.getMessage());
@@ -446,11 +449,18 @@ public class Main {
 //        }
         try {
 
-            observers = DataInput.loadData("data/observers/" + fileNum + ".csv", "Observer", 2, 3);
+            //last integers: column index of eastings/northings and, for observers, tip height column
+            observers = DataInput.loadData("data/observers/" + fileNum + ".csv", "Observer", 3,4,8);
 //            observers = DataInput.loadData("data/observers/singleTurbine.csv", "Observer", 2, 3);
 
         } catch (Exception e) {
             System.out.println("Observer load fail: " + e.getMessage());
+        }
+        
+        for (Point p : observers.points) {
+            
+            System.out.println("Observer height: " + p.height);
+            
         }
 
         //test with single turbine

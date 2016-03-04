@@ -30,7 +30,7 @@ def run_script(iface):
 
 	#Load from CSV
 	#Relative uri paths nope!
-	uri = "file:///C:/Data/WindFarmViewShed/ViewshedPython/Data/turbinesFinal.csv?type=csv&xField=Feature.Easting&yField=Feature.Northing&spatialIndex=no&subsetIndex=no&watchFile=no&crs=EPSG:27700"
+	uri = "file:///C:/Data/WindFarmViewShed/ViewshedPython/Data/turbinesFinal_reducedColumns.csv?type=csv&xField=Feature.Easting&yField=Feature.Northing&spatialIndex=no&subsetIndex=no&watchFile=no&crs=EPSG:27700"
 	lyr = QgsVectorLayer(uri,'turbinescsv','delimitedtext')
 	print(lyr.isValid())
 

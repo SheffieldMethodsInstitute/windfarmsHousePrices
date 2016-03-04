@@ -17,8 +17,8 @@ public class ObserverPoint extends Point {
 //        super(attributes, xloc, yloc);
 //    }
 
-    public ObserverPoint(String attributes, double xloc, double yloc, double zloc) {
-        super(attributes, xloc, yloc, zloc);
+    public ObserverPoint(String attributes, double xloc, double yloc, double zloc, int height) {
+        super(attributes, xloc, yloc, zloc, height) ;
         
         //hard-coding ID for now, assume in first column
         id = attributes.trim().split(",")[0];

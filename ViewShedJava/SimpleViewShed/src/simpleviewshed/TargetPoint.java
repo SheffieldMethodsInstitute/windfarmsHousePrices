@@ -32,8 +32,8 @@ public class TargetPoint extends Point {
 //    public TargetPoint(String attributes, int xloc, int yloc) {
 //        super(attributes, xloc, yloc);
 //    }
-    public TargetPoint(String attributes, double xloc, double yloc, double zloc) {
-        super(attributes, xloc, yloc, zloc);
+    public TargetPoint(String attributes, double xloc, double yloc, double zloc, int height) {
+        super(attributes, xloc, yloc, zloc, height);
     }
 
     @Override

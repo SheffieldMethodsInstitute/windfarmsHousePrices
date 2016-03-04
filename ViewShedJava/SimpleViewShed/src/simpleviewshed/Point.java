@@ -17,10 +17,23 @@ public abstract class Point extends Point3d {
     public String attributes;
     //Mirror 2D point for 2D dist calcs
     public Point2D.Double twoDLocation;
+    public int height;
 
-    public Point(String attributes, double x, double y, double z) {
+    /**
+     * Just to confuse matters: x coordinate is the point's position on the DEM surface
+     * Height is its own height in metres, not its absolute height.
+     * Are we clear?
+     * 
+     * @param attributes
+     * @param x
+     * @param y
+     * @param z
+     * @param height 
+     */
+    public Point(String attributes, double x, double y, double z, int height) {
 
         super(x, y, z);
+        this.height = height;
         
         //set mirror Point2D for 2D calcs
         twoDLocation = new Point2D.Double(x, y);
