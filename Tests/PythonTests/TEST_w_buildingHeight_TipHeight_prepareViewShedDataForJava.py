@@ -18,25 +18,63 @@ def run_script(iface):
 	start = time.time()
 
 	print(os.chdir('C:/Data/WindFarmViewShed'))
-
 	#print(processing.alglist('buffer'))
 
 	#load turbines
+	
+
 	# turbines = QgsVectorLayer(
-	# 	'C:/Data/WindFarmViewShed/Tests/PythonTests/testData/groupsOfTurbinesInDiffLocations.shp',
+	# 	'C:/Data/WindFarmViewShed/Tests/PythonTests/testData/turbineInNameAll.shp',
 	# 	'turbines','ogr')
 	# print(turbines.isValid())
 
-	turbines = QgsVectorLayer(
-		#'C:/Data/WindFarmViewShed/Tests/PythonTests/testData/turbineInNameAll.shp',
-		'C:/Data/WindFarmViewShed/Tests/PythonTests/testData/turbineSample.shp',
-		'turbines','ogr')
+	#Load from CSV
+	#Relative uri paths nope!
+	uri = "file:///C:/Data/WindFarmViewShed/ViewshedPython/Data/turbinesFinal.csv?type=csv&xField=Feature.Easting&yField=Feature.Northing&spatialIndex=no&subsetIndex=no&watchFile=no&crs=EPSG:27700"
+	lyr = QgsVectorLayer(uri,'turbinescsv','delimitedtext')
+	print(lyr.isValid())
+
+	#subset turbines for testing
+	turbines = QgsVectorLayer('Point?crs=EPSG:27700', 'turbinesJavaDataPrep', 'memory')
 	print(turbines.isValid())
+
+	pr = turbines.dataProvider()
+	
+	#give new layer matching fields so the feature addition keeps the original values
+	pr.addAttributes(lyr.fields())			
+	turbines.updateFields()
+	
+	#If there's only one polygon part, it defaults to not being multipart but it doesn't break. 
+	#So. if testing, at least one turbine needs to be far enough away to make a multipart.
+	features = lyr.getFeatures(QgsFeatureRequest().setFilterExpression( u'"X" in (2138,1783,1936,2545)' ))
+	# features = turbines.getFeatures(QgsFeatureRequest().setFilterExpression( u'"Location" = \'Wick\'' ))
+
+	pr.addFeatures([feature for feature in features])
+
+	#or keep them all
+	#turbines = lyr
+
+	#Try a shapefile. The above doesn't seem to allow multipart to single
+	# turbines = QgsVectorLayer(
+	# 	'C:/Data/WindFarmViewShed/Tests/PythonTests/testData/turbineSample.shp',
+	# 	# 'C:/Data/WindFarmViewShed/Tests/PythonTests/testData/turbineInNameAll.shp',
+	# 	'turbines','ogr')
+	# print(turbines.isValid())
+
+	QgsMapLayerRegistry.instance().addMapLayers([turbines])
 
 	######################
 	#load houses
-	houses = QgsVectorLayer('C:/Data/WindFarmViewShed/Tests/PythonTests/testData/rawGeocodedNewRoS2.shp','houses','ogr')
+	# houses = QgsVectorLayer('C:/Data/WindFarmViewShed/Tests/PythonTests/testData/rawGeocodedNewRoS2.shp','houses','ogr')
+	# print(houses.isValid())
+
+	#Load from CSV
+	uri = "file:///C:/Data/WindFarmViewShed/ViewshedPython/Data/geocodedOldNewRoS.csv?type=csv&xField=newRoS_eastings&yField=newRoS_northings&spatialIndex=no&subsetIndex=no&watchFile=no&crs=EPSG:27700"
+
+	houses = QgsVectorLayer(uri,'housesJavaDataPrep','delimitedtext')
 	print(houses.isValid())
+
+
 
 	# for field in houses.fields():
 	# 	print(field.typeName())
@@ -92,6 +130,8 @@ def run_script(iface):
 		'C:/Data/WindFarmViewShed/Tests/PythonTests/testData/SinglePart_2point75kmBuffers.shp',
 		'parts','ogr')
 	print(parts.isValid())
+
+	QgsMapLayerRegistry.instance().addMapLayers([parts])
 
 	#Just the one currently!
 	print(parts.featureCount())

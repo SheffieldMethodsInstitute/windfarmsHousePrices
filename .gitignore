@@ -1,9 +1,12 @@
-/Tests/*
+#/Tests/*
 /QGIS/*
 /Cuttinz/*
 
 *.pyc
 .Rproj.user
+.RData
+.RHistory
+*.Rproj
 /ViewShedJava/SimpleViewShed/build/
 /ViewShedJava/SimpleViewShed/nbproject/private/
 /ViewShedJava/SimpleViewShed/data/temp/

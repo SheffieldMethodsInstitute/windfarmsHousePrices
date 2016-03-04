@@ -1,0 +1,25 @@
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
+from qgis.core import *
+from qgis.gui import *
+from qgis.analysis import *
+from doViewshedHack import *
+import processing
+import timeit
+import os
+
+def run_script(iface):
+
+	#Use turbine feature ID as reference
+	filename = ('Data/subsets/rasters/' +
+	str(buffr.id()) + 
+	'.vrt')
+
+	filenametif = ('Data/subsets/rasters/' +
+	str(buffr.id()) + 
+	'.tif')
+
+	#Oh good - can take lists too!
+	processing.runalg('gdalogr:buildvirtualraster', listOfFiles, 0, True, False, filename)
+
+	processing.runalg('gdalogr:merge', listOfFiles, False, False, 5, filenametif)
