@@ -19,7 +19,7 @@ public class Landscape {
     public static int width, height;
     public static int[] origin = {-1,-1};    
 
-    public static float[][] readTiff(int fileNum) {
+    public static float[][] readTiff(String filename) {
 
         BufferedImage image = new BufferedImage(1, 1, 1);
 
@@ -28,11 +28,11 @@ public class Landscape {
             //Needs https://github.com/jai-imageio/jai-imageio-core
             //I used standalone jar from
             //https://bintray.com/jai-imageio/maven/jai-imageio-core-standalone/view
-//            image = ImageIO.read(new File("rasters/test.tif"));
-//            image = ImageIO.read(new File("rasters/testSingleTile2.tif"));
-//            image = ImageIO.read(new File("rasters/bigRasterFromMultiBuffer.tif"));
-//            image = ImageIO.read(new File("rasters/bigRasterFromMultiBuffer2.tif"));
-            image = ImageIO.read(new File("data/rasters/" + fileNum + ".tif"));
+            
+            image = ImageIO.read(new File(filename));
+
+
+//            image = ImageIO.read(new File("data/rasters/" + fileNum + ".tif"));
 
             //RGB outputs as a 32 bit int. We want 32 bit float.
 //            float fl = Float.intBitsToFloat(i);

@@ -20,16 +20,20 @@ import java.util.Random;
 public class Main {
 
     //bh_raster is same but with building heights added. Will use both where possible.
-    static float[][] raster, bh_raster;
-    boolean[][] viewShed;
-    //BresenhamLine results
-    ArrayList<Float> heights;
+    public static float[][] raster, bh_raster;
+    public static boolean useBuildingHeights = false;
+    
+    //boolean[][] viewShed;
+    //BresenhamLine results. Will contain one or two ArrayLists of points
+    //Two if using building heights
+    ArrayList<Float>[] heights;
     float[] fheights;
     //Line of sight between observer and target
     float[] lineOfSight;
 
     Ellipse2D viewCircle;
     int observerX, observerY, targetX, targetY;
+    float observerHeight;
     //will need to be scaled down by five but leave here for distance band calcs
     static float radius = 15000;
 
@@ -50,16 +54,16 @@ public class Main {
         List<File> list = Arrays.asList(folder.listFiles(new FilenameFilter() {
             @Override
             public boolean accept(File dir, String name) {
-                return name.endsWith(".csv"); 
+                return name.endsWith(".csv");
             }
         }));
 
         System.out.println(list.size() + " file groups to process.");
-        
+
         long startTime = System.currentTimeMillis();
 
         for (int fileIndex = 1; fileIndex < list.size() + 1; fileIndex++) {
-
+            
             System.out.println("Loading fileset " + fileIndex + ", " + ((System.currentTimeMillis() - startTime) / 1000) + " seconds elapsed");
             loadAllData(fileIndex);
 
@@ -70,14 +74,14 @@ public class Main {
             } catch (Exception e) {
                 System.out.println("Data output booboo: " + e);
             }
-            
+
         }//end for
 
     }
 
     private void interViz() {
 
-        int obcount = 0;
+        int obcount = 0, targetcount = 0;
         long before = System.currentTimeMillis();
         double distance2D;
 
@@ -90,6 +94,7 @@ public class Main {
             //op = (ObserverPoint) ob;
             observerX = (int) ob.x;
             observerY = (int) ob.y;
+            observerHeight = ob.height;
 
             //e.g. 15000 metres needs scaling down to 1 unit per 5 metres to match raster
             //subtract 5cm too, in case a target is exactly on 15km. Which one has been...
@@ -122,12 +127,14 @@ public class Main {
 //        for (int i = 0; i < targets.points.size(); i++) {
             for (TargetPoint target : targetsInRadius) {
 
-                heights = BresenhamLine.findLine(raster, observerX, observerY, (int) target.x, (int) target.y);
+                heights = BresenhamLine.findLine(observerX, observerY, (int) target.x, (int) target.y);
 
                 //            lineOfSight = getLineOfSight(100, 2);
                 //Oops: 5 metre units. That was a half-km high turbine and 10 metre high human!
-                lineOfSight = getLineOfSight((100f / 5f), (2f / 5f));
+                //System.out.println("using ob and target heights: " + observerHeight + ", " + target.height);
+                lineOfSight = getLineOfSight(1, (observerHeight / 5f), ((float) target.height / 5f));
 
+                //note the times 5 to take it back up to metres again!
                 distance2D = target.twoDLocation.distance(ob.twoDLocation) * 5;
 
                 if (distance2D < target.distanceToNearest) {
@@ -144,7 +151,8 @@ public class Main {
 //                }
                 target.allObsDistanceBandCounts[(int) distance2D / 1000]++;
 
-                if (canISeeYou()) {
+                //enter index of bresenham line to use
+                if (canISeeYou(1)) {
 
                     target.amISeen = true;
 
@@ -169,7 +177,24 @@ public class Main {
                 //Order will match observer file order
                 target.distanceToObservers2D.add(distance2D);
 
-            }
+                //look at some
+//                if (target.amISeen) {
+//                    System.out.println("targetcount: " + targetcount);
+//                    if (targetcount++ < 20) {
+                if (targetcount++ % 500 == 0) {
+                    try {
+                        DataOutput.outputHeightsAndLineOfSight(target.amISeen, heights[1], lineOfSight,
+                                ("data/lineofsight/lineOfSight_target" + targetcount
+                                + "_ob_" + obcount
+                                + ".csv"));
+                    } catch (Exception e) {
+                        System.out.println(e.getMessage());
+                    }
+
+                }
+
+//                }//if i can see you
+            }//for target points
 
             System.out.println("observer " + ++obcount + ": " + observerX + "," + observerY
                     + ", time: " + ((System.currentTimeMillis() - before) / 1000) + " secs");
@@ -240,19 +265,19 @@ public class Main {
             }
 
 //            System.out.println("targetX: " + targetX + ", targetY: " + targetY);
-            heights = BresenhamLine.findLine(raster, observerX, observerY, targetX, targetY);
+            heights = BresenhamLine.findLine(observerX, observerY, targetX, targetY);
 //                    fheights = BresenhamLine.findLine2(raster, x, y, i, j);
 
 //            lineOfSight = getLineOfSight(100, 2);
             //Oops: 5 metre units. That was a half-km high turbine and 10 metre high human!
 //            lineOfSight = getLineOfSight(20, 0.2f);
-            lineOfSight = getLineOfSight(21, 0.2f);
+            lineOfSight = getLineOfSight(0, 21, 0.2f);
 
             //do bespoke coordinate conversion to match raster in QGIS
             targetX = 235000 + (targetX * 5);
             targetY = 670000 - (targetY * 5);
 
-            canISeeYou = canISeeYou();
+            canISeeYou = canISeeYou(0);
 
             //targets.add(new Point(id++, targetX, targetY, canISeeYou));
             //look at some
@@ -269,62 +294,62 @@ public class Main {
 
     }//end method
 
-    private void getViewShed(int x, int y, float radius) {
-
-        int fcount = 0, tcount = 0;
-
-        viewShed = new boolean[Landscape.width][Landscape.height];
-        viewCircle = new Ellipse2D.Float((float) x - radius, (float) y - radius, radius * 2, radius * 2);
-
-        long before = System.currentTimeMillis();
-
-        //Work out visibility of every point
-        for (int i = 0; i < Landscape.width; i++) {
-
-            if (i % 10 == 0) {
-                System.out.println("Viewshed processing: row " + i + ", time: "
-                        + ((System.currentTimeMillis() - before) / 1000) + " secs");
-            }
-
-            for (int j = 0; j < Landscape.height; j++) {
-
-                //within view radius?
-                if (viewCircle.contains(i, j)) {
-
-                    heights = BresenhamLine.findLine(raster, x, y, i, j);
-//                    fheights = BresenhamLine.findLine2(raster, x, y, i, j);
-                    lineOfSight = getLineOfSight(100, 2);
-
-                    viewShed[i][j] = canISeeYou();
-
-                }
-
-                //Simple check
-//                if(viewShed[i][j]) {
-//                    tcount++;
-//                } else {
-//                    fcount++;
+//    private void getViewShed(int x, int y, float radius) {
+//
+//        int fcount = 0, tcount = 0;
+//
+//        viewShed = new boolean[Landscape.width][Landscape.height];
+//        viewCircle = new Ellipse2D.Float((float) x - radius, (float) y - radius, radius * 2, radius * 2);
+//
+//        long before = System.currentTimeMillis();
+//
+//        //Work out visibility of every point
+//        for (int i = 0; i < Landscape.width; i++) {
+//
+//            if (i % 10 == 0) {
+//                System.out.println("Viewshed processing: row " + i + ", time: "
+//                        + ((System.currentTimeMillis() - before) / 1000) + " secs");
+//            }
+//
+//            for (int j = 0; j < Landscape.height; j++) {
+//
+//                //within view radius?
+//                if (viewCircle.contains(i, j)) {
+//
+//                    heights = BresenhamLine.findLine(raster, x, y, i, j);
+////                    fheights = BresenhamLine.findLine2(raster, x, y, i, j);
+//                    lineOfSight = getLineOfSight(100, 2);
+//
+//                    viewShed[i][j] = canISeeYou();
+//
 //                }
-            }
-        }
+//
+//                //Simple check
+////                if(viewShed[i][j]) {
+////                    tcount++;
+////                } else {
+////                    fcount++;
+////                }
+//            }
+//        }
+//
+////        System.out.println("True: " + tcount + ", False: " + fcount);
+//        System.out.println("Viewshed processing time: "
+//                + ((System.currentTimeMillis() - before) / 1000) + " secs");
+//
+//    }
 
-//        System.out.println("True: " + tcount + ", False: " + fcount);
-        System.out.println("Viewshed processing time: "
-                + ((System.currentTimeMillis() - before) / 1000) + " secs");
-
-    }
-
-    private boolean canISeeYou() {
+    private boolean canISeeYou(int index) {
 
 //        System.out.println("------------");
         //If any points on same line point are higher on the landscape
         //My view is blocked
-        for (int i = 0; i < heights.size(); i++) {
+        for (int i = 0; i < heights[index].size(); i++) {
 //        for (int i = 0; i < fheights.length; i++) {
 
 //            System.out.println(lineOfSight[i] + ":" + heights.get(i));
             //Will need to check this still works if ob and target height are zero
-            if (heights.get(i) > lineOfSight[i]) {
+            if (heights[index].get(i) > lineOfSight[i]) {
 //            if (fheights[i] > lineOfSight[i]) {
 //                System.out.println("can't see. Height here: " + heights.get(i));
 
@@ -337,15 +362,15 @@ public class Main {
 
     }
 
-    private float[] getLineOfSight(float obHeight, float targetHeight) {
+    private float[] getLineOfSight(int index, float obHeight, float targetHeight) {
 
         //We know the length of line we need.
         //Just need to interpolate values between the two endpoints
-        obHeight += heights.get(0);
-        targetHeight += heights.get(heights.size() - 1);
+        obHeight += heights[index].get(0);
+        targetHeight += heights[index].get(heights[index].size() - 1);
 
 //        System.out.println("ob and target height: " + obHeight + "," + targetHeight);
-        float[] line = new float[heights.size()];
+        float[] line = new float[heights[index].size()];
 
 //        obHeight += fheights[0];
 //        targetHeight += fheights[fheights.length - 1];
@@ -417,8 +442,22 @@ public class Main {
         //
         long before = System.currentTimeMillis();
 
-        raster = Landscape.readTiff(fileNum);
-
+        //load DEM without and with building heights
+        raster = Landscape.readTiff("data/rasters/" + fileNum + ".tif");
+        System.out.println("Vanilla DEM loaded");
+        
+        //Try loading building height raster. There may not be one 
+        //so we need to work with both possibilities
+        useBuildingHeights = false;        
+        
+        if(new File("data/rasters_w_buildingheight/" + fileNum + ".tif").exists()) {
+            useBuildingHeights = true;
+            bh_raster = Landscape.readTiff("data/rasters_w_buildingheight/" + fileNum + ".tif");
+            System.out.println("DEM-plus-building-heights loaded");
+        } else {
+            System.out.println("No building height raster.");
+        }
+        
         System.out.println("Raster load time: " + ((System.currentTimeMillis() - before) / 1000) + " secs");
         //Load raster coordinate reference
         try {
@@ -450,17 +489,17 @@ public class Main {
         try {
 
             //last integers: column index of eastings/northings and, for observers, tip height column
-            observers = DataInput.loadData("data/observers/" + fileNum + ".csv", "Observer", 3,4,8);
+            observers = DataInput.loadData("data/observers/" + fileNum + ".csv", "Observer", 3, 4, 8);
 //            observers = DataInput.loadData("data/observers/singleTurbine.csv", "Observer", 2, 3);
 
         } catch (Exception e) {
             System.out.println("Observer load fail: " + e.getMessage());
         }
-        
+
         for (Point p : observers.points) {
-            
+
             System.out.println("Observer height: " + p.height);
-            
+
         }
 
         //test with single turbine
