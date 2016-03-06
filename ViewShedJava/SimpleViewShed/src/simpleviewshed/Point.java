@@ -18,6 +18,7 @@ public abstract class Point extends Point3d {
     //Mirror 2D point for 2D dist calcs
     public Point2D.Double twoDLocation;
     public int height;
+    public int id;
 
     /**
      * Just to confuse matters: x coordinate is the point's position on the DEM surface
@@ -30,10 +31,11 @@ public abstract class Point extends Point3d {
      * @param z
      * @param height 
      */
-    public Point(String attributes, double x, double y, double z, int height) {
+    public Point(String attributes, int id, double x, double y, double z, int height) {
 
         super(x, y, z);
         this.height = height;
+        this.id = id;
         
         //set mirror Point2D for 2D calcs
         twoDLocation = new Point2D.Double(x, y);

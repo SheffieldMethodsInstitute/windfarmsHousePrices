@@ -20,6 +20,12 @@ def run_script(iface):
 	print(os.chdir('C:/Data/WindFarmViewShed'))
 	#print(processing.alglist('buffer'))
 
+	#Empty raster folder first. It won't overwrite if there and I see no overwrite option in the merge algorithm. I keep on forgetting it's not overwriting...
+	#ViewShedJava/SimpleViewShed/data/rasters/
+	#ViewShedJava/SimpleViewShed/data/rasters_w_buildingheight/
+
+
+
 	#load turbines
 	
 
@@ -30,30 +36,35 @@ def run_script(iface):
 
 	#Load from CSV
 	#Relative uri paths nope!
-	uri = "file:///C:/Data/WindFarmViewShed/ViewshedPython/Data/turbinesFinal_reducedColumns.csv?type=csv&xField=Feature.Easting&yField=Feature.Northing&spatialIndex=no&subsetIndex=no&watchFile=no&crs=EPSG:27700"
+	#uri = "file:///C:/Data/WindFarmViewShed/ViewshedPython/Data/turbinesFinal_reducedColumns.csv?type=csv&xField=Feature.Easting&yField=Feature.Northing&spatialIndex=no&subsetIndex=no&watchFile=no&crs=EPSG:27700"
+	#run on pre-selected subset
+	uri = "file:///C:/Data/WindFarmViewShed/ViewshedPython/Data/turbines_subset.csv?type=csv&xField=Feature.Easting&yField=Feature.Northing&spatialIndex=no&subsetIndex=no&watchFile=no&crs=EPSG:27700"
 	lyr = QgsVectorLayer(uri,'turbinescsv','delimitedtext')
 	print(lyr.isValid())
 
 	#subset turbines for testing
-	turbines = QgsVectorLayer('Point?crs=EPSG:27700', 'turbinesJavaDataPrep', 'memory')
-	print(turbines.isValid())
+	# turbines = QgsVectorLayer('Point?crs=EPSG:27700', 'turbinesJavaDataPrep', 'memory')
+	# print(turbines.isValid())
 
-	pr = turbines.dataProvider()
+	# pr = turbines.dataProvider()
 	
-	#give new layer matching fields so the feature addition keeps the original values
-	pr.addAttributes(lyr.fields())			
-	turbines.updateFields()
+	# #give new layer matching fields so the feature addition keeps the original values
+	# pr.addAttributes(lyr.fields())			
+	# turbines.updateFields()
 	
-	#If there's only one polygon part, it defaults to not being multipart but it doesn't break. 
-	#So. if testing, at least one turbine needs to be far enough away to make a multipart.
-	features = lyr.getFeatures(QgsFeatureRequest().setFilterExpression( u'"X" in (2138,2545)' ))
-	# features = lyr.getFeatures(QgsFeatureRequest().setFilterExpression( u'"X" in (2138,1783,1936,2545)' ))
-	# features = turbines.getFeatures(QgsFeatureRequest().setFilterExpression( u'"Location" = \'Wick\'' ))
+	# #If there's only one polygon part, it defaults to not being multipart but it doesn't break. 
+	# #So. if testing, at least one turbine needs to be far enough away to make a multipart.
+	# #features = lyr.getFeatures(QgsFeatureRequest().setFilterExpression( u'"X" in (2138,2545)' ))
 
-	pr.addFeatures([feature for feature in features])
+	# #Picked for being in different batches but overlapping housing selection
+	# features = lyr.getFeatures(QgsFeatureRequest().setFilterExpression( u'"index" in (2357,2222)' ))
+	# # features = lyr.getFeatures(QgsFeatureRequest().setFilterExpression( u'"X" in (2138,1783,1936,2545)' ))
+	# # features = turbines.getFeatures(QgsFeatureRequest().setFilterExpression( u'"Location" = \'Wick\'' ))
+
+	# pr.addFeatures([feature for feature in features])
 
 	#or keep them all
-	#turbines = lyr
+	turbines = lyr
 
 	#Try a shapefile. The above doesn't seem to allow multipart to single
 	# turbines = QgsVectorLayer(

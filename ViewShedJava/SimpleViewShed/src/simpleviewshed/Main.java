@@ -45,11 +45,14 @@ public class Main {
 
 //    ArrayList<Point> observers = new ArrayList<Point>();
 //    ArrayList<Point> targets = new ArrayList<Point>();
-    DataStore targets, observers;
+    //allHouses and allHouses_BH will store all per-property results 
+    //for vanilla DEM and building-height DEM results
+    DataStore targets, observers, allHouses, allHouses_BH;
     ArrayList<TargetPoint> targetsInRadius = new ArrayList<>();
 
     int batchcount = 0;
     double distance2D;
+    TargetPoint house;
 
     public Main() {
 
@@ -71,15 +74,15 @@ public class Main {
 
         //Tests
         if (false) {
-            
+
             int fileIndex = 2;
             buildingHeightRun = true;
 
             System.out.println("Loading fileset " + fileIndex + ", " + ((System.currentTimeMillis() - startTime) / 1000) + " seconds elapsed");
             loadRasterData(fileIndex);
             //loadPointsData(fileIndex);
-            
-            targets = new DataStore();            
+
+            targets = new DataStore();
             testInterViz();
 
             //Non-building-height output
@@ -95,6 +98,11 @@ public class Main {
         //model run
         if (true) {
 
+            allHouses = loadHousingData();
+            allHouses_BH = loadHousingData();
+
+            System.out.println("loaded all housing data twice. Total size: " + allHouses.points.size() + "," + allHouses_BH.points.size());
+
             for (int fileIndex = 1; fileIndex < list.size() + 1; fileIndex++) {
 
                 //There'll always be one non-building-height run
@@ -104,14 +112,7 @@ public class Main {
                 loadRasterData(fileIndex);
                 loadPointsData(fileIndex);
 
-                interViz();
-
-                //Non-building-height output
-                try {
-                    DataOutput.outputData(targets, "data/output/" + fileIndex + ".csv");
-                } catch (Exception e) {
-                    System.out.println("Data output booboo: " + e);
-                }
+                interViz(allHouses);
 
                 //if available, re-run using building heights
                 if (thisBatchHasBuildingHeights) {
@@ -121,43 +122,34 @@ public class Main {
                     //Easiest way to re-set the points. Not large files...
                     loadPointsData(fileIndex);
 
-                    interViz();
-
-                    //Non-building-height output
-                    try {
-                        DataOutput.outputData(targets, "data/output_buildingheights/" + fileIndex + ".csv");
-                    } catch (Exception e) {
-                        System.out.println("Data output booboo: " + e);
-                    }
+                    interViz(allHouses_BH);
 
                 }
-//
-//            try {
-//                DataOutput.outputData(targets, "data/output_buildingheights/" + fileIndex + ".csv");
-//            } catch (Exception e) {
-//                System.out.println("Data output booboo: " + e);
-//            }
-//            try {
-//
-//                if (useBuildingHeightsIfAvailable) {
-//                    DataOutput.outputData(targets, "data/output_buildingheights/" + fileIndex + ".csv");
-//                } else {
-//                    DataOutput.outputData(targets, "data/output/" + fileIndex + ".csv");
-//                }
-//
-//            } catch (Exception e) {
-//                System.out.println("Data output booboo: " + e);
-//            }
 
                 batchcount++;
 
             }//end for
 
+            //Non-building-height output
+            try {
+                DataOutput.outputData(allHouses, "data/output/allHouses.csv");
+            } catch (Exception e) {
+                System.out.println("Data output booboo: " + e);
+            }
+
+            //Aaaand building height output
+            //Non-building-height output
+            try {
+                DataOutput.outputData(allHouses_BH, "data/output/allHouses_buildingHeights.csv");
+            } catch (Exception e) {
+                System.out.println("Data output booboo: " + e);
+            }
+            
         }//end if true/false
 
     }
 
-    private void interViz() {
+    private void interViz(DataStore d) {
 
         int obcount = 0, targetcount = 0;
         long before = System.currentTimeMillis();
@@ -204,6 +196,10 @@ public class Main {
 //        for (int i = 0; i < targets.points.size(); i++) {
             for (TargetPoint target : targetsInRadius) {
 
+                //Get reference to parent house where we'll add data
+                house = (TargetPoint) d.points.get(target.id);
+
+                //get matching house object where we'll store the data
                 //note the times 5 to take it back up to metres again!
                 distance2D = target.twoDLocation.distance(ob.twoDLocation) * 5;
 
@@ -219,8 +215,9 @@ public class Main {
                 lineOfSight = getLineOfSight(0, ((float) target.height / 5f), (observerHeight / 5f));
 //                lineOfSight = getLineOfSight(1, (observerHeight / 5f), ((float) target.height / 5f));
 
-                if (distance2D < target.distanceToNearest) {
-                    target.distanceToNearest = distance2D;
+                //Apply distance to nearest to parent property object
+                if (distance2D < house.distanceToNearest) {
+                    house.distanceToNearest = distance2D;
                 }
 
                 //Count of all distances in 1km distance bands
@@ -231,23 +228,25 @@ public class Main {
 //                    //substract 50cm. If anything is still over this, we'll know about it.
 //                    distance2D -= 0.5;
 //                }
-                target.allObsDistanceBandCounts[(int) distance2D / 1000]++;
+                house.allObsDistanceBandCounts[(int) distance2D / 1000]++;
 
                 //enter index of bresenham line to use
                 if (canISeeYou(0)) {
 
+                    house.amISeen = true;
+                    //For line-of-sight data output
                     target.amISeen = true;
 
-                    if (distance2D < target.distanceToNearestVisible) {
-                        target.distanceToNearestVisible = distance2D;
+                    if (distance2D < house.distanceToNearestVisible) {
+                        house.distanceToNearestVisible = distance2D;
                     }
 
                     //Hard-coding the ID for now
-                    target.ICanSeeThisObserver.add(observer.id);
+                    house.ICanSeeThisObserver.add(observer.id);
 
                     //Count of lines of sight 1km per distance band
                     //see testIndexCount method
-                    target.visibleObsDistanceBandCounts[(int) distance2D / 1000]++;
+                    house.visibleObsDistanceBandCounts[(int) distance2D / 1000]++;
 
                 }
 
@@ -257,33 +256,33 @@ public class Main {
                 //Add distance to observer, regardless of visible or not
                 //Just use 2d distance for now
                 //Order will match observer file order
-                target.distanceToObservers2D.add(distance2D);
+                house.distanceToObservers2D.add(distance2D);
 
                 //look at some
 //                if (target.amISeen) {
 //                    System.out.println("targetcount: " + targetcount);
 //                    if (targetcount++ < 20) {
-                if (targetcount++ % 500 == 0) {
-                    try {
-
-                        String type = (buildingHeightRun ? "withBuildingHeights" : "noBuildingHeights");
-
-                        DataOutput.outputHeightsAndLineOfSight(target.amISeen, heights, lineOfSight, distance2D,
-                                ("data/lineofsight/" + type + "/lineOfSight_target" + targetcount
-                                + "_batch_" + batchcount
-                                + ".csv"));
-
-                    } catch (Exception e) {
-                        System.out.println(e.getMessage());
-                    }
-
-                }
+//                if (targetcount++ % 500 == 0) {
+//                    try {
+//
+//                        String type = (buildingHeightRun ? "withBuildingHeights" : "noBuildingHeights");
+//
+//                        DataOutput.outputHeightsAndLineOfSight(target.amISeen, heights, lineOfSight, distance2D,
+//                                ("data/lineofsight/" + type + "/lineOfSight_target" + targetcount
+//                                + "_batch_" + batchcount
+//                                + ".csv"));
+//
+//                    } catch (Exception e) {
+//                        System.out.println(e.getMessage());
+//                    }
+//
+//                }
 
 //                }//if i can see you
             }//for target points
 
-            System.out.println("observer " + obcount++ + ": " + observerX + "," + observerY
-                    + ", time: " + ((System.currentTimeMillis() - before) / 1000) + " secs");
+            System.out.println("batch " + batchcount + ", buildingHeightRun " + buildingHeightRun +  ", observer " + obcount++ + ": " + observerX + "," + observerY
+                    + ", time: " + ((System.currentTimeMillis() - before) / 60000) + " mins " + ((System.currentTimeMillis() - before) / 1000) + " secs");
 
         }//for ob points
 
@@ -364,7 +363,7 @@ public class Main {
             targetX = Landscape.origin[0] + (targetX * 5);
             targetY = Landscape.origin[1] - (targetY * 5);
 
-            TargetPoint Tg = new TargetPoint("", (double) targetX, (double) targetY, 0, 2);
+            TargetPoint Tg = new TargetPoint("", 0, (double) targetX, (double) targetY, 0, 2);
 
             Tg.amISeen = canISeeYou(0);
 
@@ -569,9 +568,9 @@ public class Main {
     private void loadPointsData(int fileNum) {
 
         try {
-            //last integers: column index of eastings/northings
+            //last integers: id, column index of eastings/northings and, for observers, tip height column
             //-1: ignore height column, default to 2m
-            targets = DataInput.loadData("data/targets/" + fileNum + ".csv", "Target", 2, 3, -1);
+            targets = DataInput.loadData("data/targets/" + fileNum + ".csv", "Target", 0, 2, 3, -1);
 //            targets = DataInput.loadData("data/targets/1.csv", "Target", 2, 3);
         } catch (Exception e) {
             System.out.println("Target load fail: " + e.getMessage());
@@ -586,8 +585,8 @@ public class Main {
 //        }
         try {
 
-            //last integers: column index of eastings/northings and, for observers, tip height column
-            observers = DataInput.loadData("data/observers/" + fileNum + ".csv", "Observer", 3, 4, 8);
+            //last integers: id, column index of eastings/northings and, for observers, tip height column
+            observers = DataInput.loadData("data/observers/" + fileNum + ".csv", "Observer", 0, 2, 3, 7);
 //            observers = DataInput.loadData("data/observers/singleTurbine.csv", "Observer", 2, 3);
 
         } catch (Exception e) {
@@ -608,6 +607,24 @@ public class Main {
 //        for(Point p : observers.points) {
 //            System.out.println("turbine: " + p.attributes);
 //        }
+    }
+
+    private DataStore loadHousingData() {
+
+        DataStore d = new DataStore();
+
+        try {
+            //last integers: id, column index of eastings/northings and, for observers, tip height column
+            //-1: ignore height column, default to 2m
+            d = DataInput.loadData("C:\\Data\\WindFarmViewShed\\ViewshedPython\\Data\\geocodedOldNewRoS.csv", "Target", 0, 2, 3, -1);
+//            d = DataInput.loadData("C:/Data/WindFarmViewShed/ViewshedPython/Data/geocodedOldNewRoS.csv", "Target", 0, 2, 3, -1);
+//            targets = DataInput.loadData("data/targets/1.csv", "Target", 2, 3);
+        } catch (Exception e) {
+            System.out.println("Target load fail: " + e.getMessage());
+        }
+
+        return d;
+
     }
 
     /**

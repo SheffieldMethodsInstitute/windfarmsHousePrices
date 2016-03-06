@@ -17,7 +17,7 @@ public class TargetPoint extends Point {
     double distance2D, distance3D;
 
     //list of all observers where there's line of sight
-    ArrayList<String> ICanSeeThisObserver = new ArrayList();
+    ArrayList<Integer> ICanSeeThisObserver = new ArrayList();
     //Order of entries will match IDs passed to 
     ArrayList<Double> distanceToObservers2D = new ArrayList();
     //distance band counts for observers within the view radius. One count per index. One count per km.
@@ -32,8 +32,8 @@ public class TargetPoint extends Point {
 //    public TargetPoint(String attributes, int xloc, int yloc) {
 //        super(attributes, xloc, yloc);
 //    }
-    public TargetPoint(String attributes, double xloc, double yloc, double zloc, int height) {
-        super(attributes, xloc, yloc, zloc, height);
+    public TargetPoint(String attributes, int id, double xloc, double yloc, double zloc, int height) {
+        super(attributes, id, xloc, yloc, zloc, height);
     }
 
     @Override
