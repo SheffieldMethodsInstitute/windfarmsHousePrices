@@ -6,6 +6,7 @@
 package simpleviewshed;
 
 import java.awt.geom.Ellipse2D;
+import java.awt.geom.Point2D;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.util.ArrayList;
@@ -21,8 +22,11 @@ public class Main {
 
     //bh_raster is same but with building heights added. Will use both where possible.
     public static float[][] raster, bh_raster;
-    public static boolean useBuildingHeights = false;
-    
+    //If building height data is present for this batch...
+    public static boolean thisBatchHasBuildingHeights = false;
+    //This marks whether a run is taking place using those building heights, for data output porpoises.
+    public static boolean buildingHeightRun = false;
+
     //boolean[][] viewShed;
     //BresenhamLine results. Will contain one or two ArrayLists of points
     //Two if using building heights
@@ -44,6 +48,9 @@ public class Main {
     DataStore targets, observers;
     ArrayList<TargetPoint> targetsInRadius = new ArrayList<>();
 
+    int batchcount = 0;
+    double distance2D;
+
     public Main() {
 
         //can be any of the three data folders, just need to get the number of files in there
@@ -62,20 +69,91 @@ public class Main {
 
         long startTime = System.currentTimeMillis();
 
-        for (int fileIndex = 1; fileIndex < list.size() + 1; fileIndex++) {
+        //Tests
+        if (false) {
             
+            int fileIndex = 2;
+            buildingHeightRun = true;
+
             System.out.println("Loading fileset " + fileIndex + ", " + ((System.currentTimeMillis() - startTime) / 1000) + " seconds elapsed");
-            loadAllData(fileIndex);
+            loadRasterData(fileIndex);
+            //loadPointsData(fileIndex);
+            
+            targets = new DataStore();            
+            testInterViz();
 
-            interViz();
-
+            //Non-building-height output
             try {
-                DataOutput.outputData(targets, "data/output/" + fileIndex + ".csv");
+                DataOutput.outputPointsNViz(targets, "data/output_tests/" + fileIndex + ".csv");
+//                DataOutput.outputData(targets, "data/output_tests/" + fileIndex + ".csv");
             } catch (Exception e) {
                 System.out.println("Data output booboo: " + e);
             }
 
-        }//end for
+        }
+
+        //model run
+        if (true) {
+
+            for (int fileIndex = 1; fileIndex < list.size() + 1; fileIndex++) {
+
+                //There'll always be one non-building-height run
+                buildingHeightRun = false;
+
+                System.out.println("Loading fileset " + fileIndex + ", " + ((System.currentTimeMillis() - startTime) / 1000) + " seconds elapsed");
+                loadRasterData(fileIndex);
+                loadPointsData(fileIndex);
+
+                interViz();
+
+                //Non-building-height output
+                try {
+                    DataOutput.outputData(targets, "data/output/" + fileIndex + ".csv");
+                } catch (Exception e) {
+                    System.out.println("Data output booboo: " + e);
+                }
+
+                //if available, re-run using building heights
+                if (thisBatchHasBuildingHeights) {
+
+                    buildingHeightRun = true;
+
+                    //Easiest way to re-set the points. Not large files...
+                    loadPointsData(fileIndex);
+
+                    interViz();
+
+                    //Non-building-height output
+                    try {
+                        DataOutput.outputData(targets, "data/output_buildingheights/" + fileIndex + ".csv");
+                    } catch (Exception e) {
+                        System.out.println("Data output booboo: " + e);
+                    }
+
+                }
+//
+//            try {
+//                DataOutput.outputData(targets, "data/output_buildingheights/" + fileIndex + ".csv");
+//            } catch (Exception e) {
+//                System.out.println("Data output booboo: " + e);
+//            }
+//            try {
+//
+//                if (useBuildingHeightsIfAvailable) {
+//                    DataOutput.outputData(targets, "data/output_buildingheights/" + fileIndex + ".csv");
+//                } else {
+//                    DataOutput.outputData(targets, "data/output/" + fileIndex + ".csv");
+//                }
+//
+//            } catch (Exception e) {
+//                System.out.println("Data output booboo: " + e);
+//            }
+
+                batchcount++;
+
+            }//end for
+
+        }//end if true/false
 
     }
 
@@ -83,7 +161,6 @@ public class Main {
 
         int obcount = 0, targetcount = 0;
         long before = System.currentTimeMillis();
-        double distance2D;
 
         ObserverPoint observer;
 
@@ -127,15 +204,20 @@ public class Main {
 //        for (int i = 0; i < targets.points.size(); i++) {
             for (TargetPoint target : targetsInRadius) {
 
-                heights = BresenhamLine.findLine(observerX, observerY, (int) target.x, (int) target.y);
+                //note the times 5 to take it back up to metres again!
+                distance2D = target.twoDLocation.distance(ob.twoDLocation) * 5;
+
+//                heights = BresenhamLine.findLine(observerX, observerY, (int) target.x, (int) target.y);
+                //Try reversing order. Should be exactly same outcome.
+                heights = BresenhamLine.findLine((int) target.x, (int) target.y, observerX, observerY, distance2D);
 
                 //            lineOfSight = getLineOfSight(100, 2);
                 //Oops: 5 metre units. That was a half-km high turbine and 10 metre high human!
                 //System.out.println("using ob and target heights: " + observerHeight + ", " + target.height);
-                lineOfSight = getLineOfSight(1, (observerHeight / 5f), ((float) target.height / 5f));
-
-                //note the times 5 to take it back up to metres again!
-                distance2D = target.twoDLocation.distance(ob.twoDLocation) * 5;
+                //Needs to be in the same order as "heights"
+                //In this case from target to observer - not very logical-sounding!
+                lineOfSight = getLineOfSight(0, ((float) target.height / 5f), (observerHeight / 5f));
+//                lineOfSight = getLineOfSight(1, (observerHeight / 5f), ((float) target.height / 5f));
 
                 if (distance2D < target.distanceToNearest) {
                     target.distanceToNearest = distance2D;
@@ -152,7 +234,7 @@ public class Main {
                 target.allObsDistanceBandCounts[(int) distance2D / 1000]++;
 
                 //enter index of bresenham line to use
-                if (canISeeYou(1)) {
+                if (canISeeYou(0)) {
 
                     target.amISeen = true;
 
@@ -183,10 +265,14 @@ public class Main {
 //                    if (targetcount++ < 20) {
                 if (targetcount++ % 500 == 0) {
                     try {
-                        DataOutput.outputHeightsAndLineOfSight(target.amISeen, heights[1], lineOfSight,
-                                ("data/lineofsight/lineOfSight_target" + targetcount
-                                + "_ob_" + obcount
+
+                        String type = (buildingHeightRun ? "withBuildingHeights" : "noBuildingHeights");
+
+                        DataOutput.outputHeightsAndLineOfSight(target.amISeen, heights, lineOfSight, distance2D,
+                                ("data/lineofsight/" + type + "/lineOfSight_target" + targetcount
+                                + "_batch_" + batchcount
                                 + ".csv"));
+
                     } catch (Exception e) {
                         System.out.println(e.getMessage());
                     }
@@ -196,39 +282,38 @@ public class Main {
 //                }//if i can see you
             }//for target points
 
-            System.out.println("observer " + ++obcount + ": " + observerX + "," + observerY
+            System.out.println("observer " + obcount++ + ": " + observerX + "," + observerY
                     + ", time: " + ((System.currentTimeMillis() - before) / 1000) + " secs");
 
         }//for ob points
 
     }
 
-    private void testIndexCount() {
-
-        //Making sure distance band array index increment does what it should
-        //First, is this the right number of indices e.g. if view radius is 15km?
-        //0-1 / 1-2 / ... / 14-15km
-        int visibleObsDistanceBandCounts[] = new int[(int) radius / 1000];
-
-        //Yup.
-        System.out.println("index num: " + visibleObsDistanceBandCounts.length);
-
-        //Then - can distance be simply converted to int to find the right one?
-        Random randDist = new Random(1);
-
-        for (double d = 0; d < radius; d += (randDist.nextDouble() * 20)) {
-
-            int index = (int) d / 1000;
-
-            visibleObsDistanceBandCounts[index]++;
-
-            //Yup!
-            System.out.println("distance: " + d + ", index: " + index);
-
-        }
-
-    }
-
+//    private void testIndexCount() {
+//
+//        //Making sure distance band array index increment does what it should
+//        //First, is this the right number of indices e.g. if view radius is 15km?
+//        //0-1 / 1-2 / ... / 14-15km
+//        int visibleObsDistanceBandCounts[] = new int[(int) radius / 1000];
+//
+//        //Yup.
+//        System.out.println("index num: " + visibleObsDistanceBandCounts.length);
+//
+//        //Then - can distance be simply converted to int to find the right one?
+//        Random randDist = new Random(1);
+//
+//        for (double d = 0; d < radius; d += (randDist.nextDouble() * 20)) {
+//
+//            int index = (int) d / 1000;
+//
+//            visibleObsDistanceBandCounts[index]++;
+//
+//            //Yup!
+//            System.out.println("distance: " + d + ", index: " + index);
+//
+//        }
+//
+//    }
     private void testInterViz() {
 
         long before = System.currentTimeMillis();
@@ -264,22 +349,27 @@ public class Main {
 
             }
 
+            distance2D = (new Point2D.Double(targetX, targetY).distance(new Point2D.Double(observerX, observerY))) * 5;
+
 //            System.out.println("targetX: " + targetX + ", targetY: " + targetY);
-            heights = BresenhamLine.findLine(observerX, observerY, targetX, targetY);
+            heights = BresenhamLine.findLine(observerX, observerY, targetX, targetY, distance2D);
 //                    fheights = BresenhamLine.findLine2(raster, x, y, i, j);
 
 //            lineOfSight = getLineOfSight(100, 2);
             //Oops: 5 metre units. That was a half-km high turbine and 10 metre high human!
 //            lineOfSight = getLineOfSight(20, 0.2f);
-            lineOfSight = getLineOfSight(0, 21, 0.2f);
+            lineOfSight = getLineOfSight(0, 20, 0.2f);
 
             //do bespoke coordinate conversion to match raster in QGIS
-            targetX = 235000 + (targetX * 5);
-            targetY = 670000 - (targetY * 5);
+            targetX = Landscape.origin[0] + (targetX * 5);
+            targetY = Landscape.origin[1] - (targetY * 5);
 
-            canISeeYou = canISeeYou(0);
+            TargetPoint Tg = new TargetPoint("", (double) targetX, (double) targetY, 0, 2);
 
-            //targets.add(new Point(id++, targetX, targetY, canISeeYou));
+            Tg.amISeen = canISeeYou(0);
+
+            targets.points.add(Tg);
+
             //look at some
 //            if (canISeeYou) {
 //            if (i % 500 == 0) {
@@ -293,7 +383,6 @@ public class Main {
         }
 
     }//end method
-
 //    private void getViewShed(int x, int y, float radius) {
 //
 //        int fcount = 0, tcount = 0;
@@ -426,7 +515,7 @@ public class Main {
 
     }
 
-    private void loadAllData(int fileNum) {
+    private void loadRasterData(int fileNum) {
 
         //VERY IMPORTANT NOTE AT TOP!
         //OS Terrain 5 data is all 5 metre grids. This code as it stands HARD-CODES for that
@@ -445,19 +534,24 @@ public class Main {
         //load DEM without and with building heights
         raster = Landscape.readTiff("data/rasters/" + fileNum + ".tif");
         System.out.println("Vanilla DEM loaded");
-        
+
         //Try loading building height raster. There may not be one 
         //so we need to work with both possibilities
-        useBuildingHeights = false;        
-        
-        if(new File("data/rasters_w_buildingheight/" + fileNum + ".tif").exists()) {
-            useBuildingHeights = true;
+        thisBatchHasBuildingHeights = false;
+
+        //If we want to try and use building heights, where available
+        //*and* they exist...        
+        if (new File("data/rasters_w_buildingheight/" + fileNum + ".tif").exists()) {
+
+            thisBatchHasBuildingHeights = true;
             bh_raster = Landscape.readTiff("data/rasters_w_buildingheight/" + fileNum + ".tif");
+
             System.out.println("DEM-plus-building-heights loaded");
+
         } else {
             System.out.println("No building height raster.");
         }
-        
+
         System.out.println("Raster load time: " + ((System.currentTimeMillis() - before) / 1000) + " secs");
         //Load raster coordinate reference
         try {
@@ -469,6 +563,10 @@ public class Main {
         }
 
         System.out.println("origin: " + Landscape.origin[0] + "," + Landscape.origin[1]);
+
+    }
+
+    private void loadPointsData(int fileNum) {
 
         try {
             //last integers: column index of eastings/northings

@@ -16,6 +16,17 @@ public class BresenhamLine {
     public static ArrayList line = new ArrayList<Float>();
     //same line for building-height version. Can do both at same time.
     public static ArrayList bh_line = new ArrayList<Float>();
+    //adjusted version with 'levelled' area near target
+    //Actually, just going to level bh_line
+    //public static ArrayList bh_line_levelled = new ArrayList<Float>();
+
+    //How much to flatten buildings around target point so they can "see"
+    //In metres
+    private static int buildingLevelRadius = 100;
+    //Fraction of line to level at target end
+    private static double fraction;
+    //And actual count of indices to drop
+    private static int dropIndices;
 
 //    /**
 //     * Returns the list of array elements that comprise the line.
@@ -70,12 +81,13 @@ public class BresenhamLine {
      * @param x0 the starting point x
      * @param y0 the starting point y
      * @param x1 the finishing point x
+     * @param distance between the two points
      * @param y1 the finishing point y
      * @return the line as a list of array elements
      */
     //return height values along the line
     //Return two arraylists if finding for building height raster also
-    public static ArrayList<Float>[] findLine(int x0, int y0, int x1, int y1) {
+    public static ArrayList<Float>[] findLine(int x0, int y0, int x1, int y1, double distance) {
 //    public static ArrayList<Float>[] findLine(float[][] grid, int x0, int y0, int x1, int y1) {
 
         line.clear();
@@ -83,7 +95,7 @@ public class BresenhamLine {
         //If using building heights too
         //I can grab both at the same time rather than calculate twice. 
         //It should be a little faster.
-        if (Main.useBuildingHeights) {
+        if (Main.buildingHeightRun) {
             bh_line.clear();
         }
 //        ArrayList line = new ArrayList<>();        
@@ -104,7 +116,7 @@ public class BresenhamLine {
             line.add(Main.raster[currentX][currentY]);
 
             //find same point height on building-height version, if using
-            if (Main.useBuildingHeights) {
+            if (Main.buildingHeightRun) {
                 bh_line.add(Main.bh_raster[currentX][currentY]);
             }
 //            line.add(grid[currentX][currentY]/5f);
@@ -126,8 +138,39 @@ public class BresenhamLine {
             }
         }
 
-        if (Main.useBuildingHeights) {
-            return new ArrayList[]{line, bh_line};
+        //If using building heights, as well as returning both,
+        //return a third where the nearest building radius is overwritten
+        //With vanilla DEM so target can "see out of" building.
+        if (Main.buildingHeightRun) {
+
+            //start of line is house/target, end is observer/turbine.
+            //At least at the moment.
+            //We want the building-end to have very nearby buildings removed
+            //To make sure "I" can see out of my own building.
+            //Use passed in distance - we can't tell that from the line itself
+            //but we can work out proportions
+//            System.out.println("distance: " + distance);
+//            System.out.println("Levelling radius: " + buildingLevelRadius);
+//            System.out.println("Line length: " + line.size());
+
+            fraction = (double) buildingLevelRadius / distance;
+
+//            System.out.println("fraction: " + fraction);
+
+            //in case we're levelling more than the actual line distance...
+            fraction = (fraction > 1 ? 1 : fraction);
+
+            dropIndices = (int) ((double) line.size() * fraction);
+
+//            System.out.println("dropping this number of indices from line: " + dropIndices);
+
+            //Replace that small area nearby from vanilla DEM
+            for (int i = 0; i < dropIndices; i++) {
+                bh_line.set(i, line.get(i));
+            }
+
+            return new ArrayList[]{bh_line, line};
+            
         } else {
             return new ArrayList[]{line};
         }
