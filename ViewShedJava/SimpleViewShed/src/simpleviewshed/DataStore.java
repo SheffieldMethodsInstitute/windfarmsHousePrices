@@ -1,12 +1,13 @@
 package simpleviewshed;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
  *
  * @author Dan Olner
  */
-public class DataStore {
+public class DataStore implements Serializable {
     
     public String fields;
     public ArrayList<Point> points = new ArrayList<Point>();    

@@ -1,3 +1,6 @@
 /temp/*
 /cuttinz/*
+/serialised/*
+/serialised_backup/*
+/targetsplusDEMdata/*
 *.csv

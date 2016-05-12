@@ -69,12 +69,12 @@ public class DataInput {
                 height = (heightIndex == -1 ? 2 : (int) Float.parseFloat(cells[heightIndex]));
                 //System.out.println("height index:" + heightIndex);
 
-                if (heightIndex != -1) {
-
-//                    System.out.println("heightIndex: " + heightIndex + ", col: " + 5);
-                    System.out.println("heightIndex: " + heightIndex + ", col: " + (int) Float.parseFloat(cells[heightIndex]));
-
-                }
+//                if (heightIndex != -1) {
+//
+////                    System.out.println("heightIndex: " + heightIndex + ", col: " + 5);
+//                    System.out.println("heightIndex: " + heightIndex + ", col: " + (int) Float.parseFloat(cells[heightIndex]));
+//
+//                }
 
                 //x adjustment relatively easy
                 x -= Landscape.origin[0];

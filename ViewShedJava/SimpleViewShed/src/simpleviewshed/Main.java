@@ -8,11 +8,18 @@ package simpleviewshed;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Point2D;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FilenameFilter;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 
 /**
  *
@@ -50,9 +57,18 @@ public class Main {
     DataStore targets, observers, allHouses, allHouses_BH;
     ArrayList<TargetPoint> targetsInRadius = new ArrayList<>();
 
-    int batchcount = 0;
+    //int batchcount = 1;
     double distance2D;
     TargetPoint house;
+    String fileName;
+
+    //current file batch number.
+    //Will start from one if first run
+    //or get batch number from serialised data and then start with next batch
+    int batchNumber = 1;
+    boolean useSerialisedIfAvailable = false;
+    //Set to batch number point to serialise results. Minus one to turn off.
+    int serialiseResultsAsWeGo = -1;
 
     public Main() {
 
@@ -98,24 +114,45 @@ public class Main {
         //model run
         if (true) {
 
-            allHouses = loadHousingData();
-            allHouses_BH = loadHousingData();
+            //Which I'm doing, if I remember rightly, so I can add results to ALL housing
+            //flag for "building height data"; only used if loading serialised
+            //Otherwise it'll just load the raw data twice
+            allHouses = loadHousingData(false);
+            allHouses_BH = loadHousingData(true);
 
             System.out.println("loaded all housing data twice. Total size: " + allHouses.points.size() + "," + allHouses_BH.points.size());
 
-            for (int fileIndex = 1; fileIndex < list.size() + 1; fileIndex++) {
+//            for (int fileIndex = batchNumber; fileIndex < 6; fileIndex++) {
+            //batch number may be set higher if serialised previous work loaded
+//            for (int fileIndex = batchNumber; fileIndex < list.size() + 1; fileIndex++) {
+            for (int fileIndex = 7; fileIndex < 8; fileIndex++) {
+//            for (int fileIndex = testFileSet; fileIndex < testFileSet + 1; fileIndex++) {
 
                 //There'll always be one non-building-height run
                 buildingHeightRun = false;
 
                 System.out.println("Loading fileset " + fileIndex + ", " + ((System.currentTimeMillis() - startTime) / 1000) + " seconds elapsed");
+
+                //memory checks
+                System.out.println("Total memory: " + (Runtime.getRuntime().maxMemory())/1073741824f
+                        + "gb , available memory: "
+                        + (Runtime.getRuntime().freeMemory())/1073741824f + "gb");
+
                 loadRasterData(fileIndex);
                 loadPointsData(fileIndex);
 
                 interViz(allHouses);
 
+                //serialise in case we stop running for any reason and can pick up where we left off
+                if (fileIndex % serialiseResultsAsWeGo == 0 && serialiseResultsAsWeGo!=-1) {
+                    System.out.println("Saving non-building height...");
+                    fileName = ("data/serialised/nonBuilding/" + fileIndex + ".ser");
+                    serialise(allHouses, fileName);
+                }
+
                 //if available, re-run using building heights
                 if (thisBatchHasBuildingHeights) {
+//                if (false) {
 
                     buildingHeightRun = true;
 
@@ -124,27 +161,35 @@ public class Main {
 
                     interViz(allHouses_BH);
 
+                    //serialise in case we stop running for any reason and can pick up where we left off
+                    if (fileIndex % serialiseResultsAsWeGo == 0 && serialiseResultsAsWeGo!=-1) {
+                        System.out.println("Saving building height...");
+                        fileName = ("data/serialised/building/" + fileIndex + ".ser");
+                        serialise(allHouses, fileName);
+                    }
+
                 }
 
-                batchcount++;
+                batchNumber++;//to get access to loop index in other methods
 
             }//end for
 
             //Non-building-height output
             try {
-                DataOutput.outputData(allHouses, "data/output/allHouses.csv");
+//                DataOutput.outputData(allHouses, "data/output/allHouses.csv");
+                DataOutput.outputData(allHouses, "data/output/allHouses_glasgowTest.csv");
             } catch (Exception e) {
                 System.out.println("Data output booboo: " + e);
             }
 
             //Aaaand building height output
-            //Non-building-height output
             try {
-                DataOutput.outputData(allHouses_BH, "data/output/allHouses_buildingHeights.csv");
+//                DataOutput.outputData(allHouses_BH, "data/output/allHouses_buildingHeights.csv");
+                DataOutput.outputData(allHouses_BH, "data/output/allHouses_buildingHeights_glasgowTest.csv");
             } catch (Exception e) {
                 System.out.println("Data output booboo: " + e);
             }
-            
+
         }//end if true/false
 
     }
@@ -241,7 +286,7 @@ public class Main {
                         house.distanceToNearestVisible = distance2D;
                     }
 
-                    //Hard-coding the ID for now
+                    //Add observer ID that can be seen
                     house.ICanSeeThisObserver.add(observer.id);
 
                     //Count of lines of sight 1km per distance band
@@ -277,11 +322,10 @@ public class Main {
 //                    }
 //
 //                }
-
 //                }//if i can see you
             }//for target points
 
-            System.out.println("batch " + batchcount + ", buildingHeightRun " + buildingHeightRun +  ", observer " + obcount++ + ": " + observerX + "," + observerY
+            System.out.println("batch " + batchNumber + ", buildingHeightRun " + buildingHeightRun + ", observer " + obcount++ + ": " + observerX + "," + observerY
                     + ", time: " + ((System.currentTimeMillis() - before) / 60000) + " mins " + ((System.currentTimeMillis() - before) / 1000) + " secs");
 
         }//for ob points
@@ -609,21 +653,106 @@ public class Main {
 //        }
     }
 
-    private DataStore loadHousingData() {
+    private DataStore loadHousingData(boolean buildingHeight) {
 
-        DataStore d = new DataStore();
+        //Either load from file initially
+        //Or reload serialised version if we're part way through a run
+        File folder = (buildingHeight ? new File("data/serialised/building") : new File("data/serialised/nonBuilding"));
 
-        try {
-            //last integers: id, column index of eastings/northings and, for observers, tip height column
-            //-1: ignore height column, default to 2m
-            d = DataInput.loadData("C:\\Data\\WindFarmViewShed\\ViewshedPython\\Data\\geocodedOldNewRoS.csv", "Target", 0, 2, 3, -1);
+        //http://stackoverflow.com/questions/2102952/listing-files-in-a-directory-matching-a-pattern-in-java
+        List<File> list = Arrays.asList(folder.listFiles(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                return name.endsWith(".ser");
+            }
+        }));
+
+        //It'll either be one file or none...
+        if (list.size() > 0 && useSerialisedIfAvailable) {
+
+            System.out.println(list.size() + " file batches already processed / serialised. Start from next...");
+
+            DataStore d;
+
+            //there should only be the one file. We'll need the number from the filename.
+            System.out.println("Filename: " + list.get(0).getAbsolutePath());
+            String fileNameWithOutExt = FilenameUtils.removeExtension(list.get(0).getName());
+            System.out.println("Last batch number: " + fileNameWithOutExt);
+
+            //Get batch number only from non-building - we'll definitely have that each batch
+            System.out.println("Parent folder: " + list.get(0).getParentFile().getName());
+
+            if (list.get(0).getParentFile().getName().equals("nonBuilding")) {
+                batchNumber = (Integer.parseInt(fileNameWithOutExt)) + 1;
+                System.out.println("Set next batch number to process: " + batchNumber);
+            }
+
+            //set batch number: 1 more than last file.
+            //Reload and set the batch point from where we last saved
+            try {
+                System.out.println("Loading previously serialised data...");
+                FileInputStream fileIn = new FileInputStream(list.get(0).getAbsolutePath());
+                ObjectInputStream in = new ObjectInputStream(fileIn);
+                d = (DataStore) in.readObject();
+                in.close();
+                fileIn.close();
+            } catch (IOException i) {
+                i.printStackTrace();
+                return null;
+            } catch (ClassNotFoundException c) {
+                c.printStackTrace();
+                return null;
+            }
+
+            return d;
+
+            //List size matches batch number we got to. Load the last.
+        } else {
+
+            System.out.println("Starting at beginning of batches...");
+
+            DataStore d = new DataStore();
+
+            try {
+                //last integers: id, column index of eastings/northings and, for observers, tip height column
+                //-1: ignore height column, default to 2m
+                d = DataInput.loadData("C:\\Data\\WindFarmViewShed\\ViewshedPython\\Data\\houses_finalMay2016.csv", "Target", 0, 2, 3, -1);
+//            d = DataInput.loadData("C:\\Data\\WindFarmViewShed\\ViewshedPython\\Data\\geocodedOldNewRoS.csv", "Target", 0, 2, 3, -1);
 //            d = DataInput.loadData("C:/Data/WindFarmViewShed/ViewshedPython/Data/geocodedOldNewRoS.csv", "Target", 0, 2, 3, -1);
 //            targets = DataInput.loadData("data/targets/1.csv", "Target", 2, 3);
-        } catch (Exception e) {
-            System.out.println("Target load fail: " + e.getMessage());
+            } catch (Exception e) {
+                System.out.println("Target load fail: " + e.getMessage());
+            }
+
+            return d;
+
         }
 
-        return d;
+    }
+
+    private void serialise(DataStore d, String filename) {
+
+        try {
+
+            File file = new File(filename);
+            String directory = file.getParent();
+            System.out.println("Emptying directory: " + directory);
+            //get rid of existing files first. They're each 0.2 gig, we don't want 140 of those!
+            FileUtils.cleanDirectory(new File(directory));
+
+            System.out.println("Writing new serialised...");
+
+            FileOutputStream fileOut
+                    = new FileOutputStream(filename);
+            ObjectOutputStream out = new ObjectOutputStream(fileOut);
+
+            out.writeObject(d);
+            out.close();
+            fileOut.close();
+
+        } catch (IOException i) {
+            i.printStackTrace();
+        }
 
     }
 

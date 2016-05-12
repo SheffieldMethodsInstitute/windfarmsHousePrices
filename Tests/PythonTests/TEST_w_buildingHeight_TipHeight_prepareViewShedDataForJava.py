@@ -36,9 +36,9 @@ def run_script(iface):
 
 	#Load from CSV
 	#Relative uri paths nope!
-	#uri = "file:///C:/Data/WindFarmViewShed/ViewshedPython/Data/turbinesFinal_reducedColumns.csv?type=csv&xField=Feature.Easting&yField=Feature.Northing&spatialIndex=no&subsetIndex=no&watchFile=no&crs=EPSG:27700"
+	uri = "file:///C:/Data/WindFarmViewShed/ViewshedPython/Data/turbinesFinal_reducedColumns.csv?type=csv&xField=Feature.Easting&yField=Feature.Northing&spatialIndex=no&subsetIndex=no&watchFile=no&crs=EPSG:27700"
 	#run on pre-selected subset
-	uri = "file:///C:/Data/WindFarmViewShed/ViewshedPython/Data/turbines_subset.csv?type=csv&xField=Feature.Easting&yField=Feature.Northing&spatialIndex=no&subsetIndex=no&watchFile=no&crs=EPSG:27700"
+	#uri = "file:///C:/Data/WindFarmViewShed/ViewshedPython/Data/turbines_subset.csv?type=csv&xField=Feature.Easting&yField=Feature.Northing&spatialIndex=no&subsetIndex=no&watchFile=no&crs=EPSG:27700"
 	lyr = QgsVectorLayer(uri,'turbinescsv','delimitedtext')
 	print(lyr.isValid())
 
@@ -81,7 +81,8 @@ def run_script(iface):
 	# print(houses.isValid())
 
 	#Load from CSV
-	uri = "file:///C:/Data/WindFarmViewShed/ViewshedPython/Data/geocodedOldNewRoS.csv?type=csv&xField=newRoS_eastings&yField=newRoS_northings&spatialIndex=no&subsetIndex=no&watchFile=no&crs=EPSG:27700"
+	#uri = "file:///C:/Data/WindFarmViewShed/ViewshedPython/Data/geocodedOldNewRoS.csv?type=csv&xField=newRoS_eastings&yField=newRoS_northings&spatialIndex=no&subsetIndex=no&watchFile=no&crs=EPSG:27700"
+	uri = "file:///C:/Data/WindFarmViewShed/ViewshedPython/Data/houses_finalMay2016.csv?type=csv&xField=eastingsFinal&yField=northingsFinal&spatialIndex=no&subsetIndex=no&watchFile=no&crs=EPSG:27700"
 
 	houses = QgsVectorLayer(uri,'housesJavaDataPrep','delimitedtext')
 	print(houses.isValid())
@@ -438,6 +439,7 @@ def run_script(iface):
 		#############
 		#reload to get coord metadata, store in own file
 		#Use non-building-height version as we'll also get DEM info while here
+		
 		raster = QgsRasterLayer(filenametif1,'getcoords')
 		print raster.isValid()
 

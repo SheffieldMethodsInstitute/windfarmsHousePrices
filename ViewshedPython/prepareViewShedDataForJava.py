@@ -29,13 +29,17 @@ def run_script(iface):
 
 	turbines = QgsVectorLayer(
 		#'C:/Data/WindFarmViewShed/Tests/PythonTests/testData/turbineInNameAll.shp',
-		'C:/Data/WindFarmViewShed/Tests/PythonTests/testData/turbineSample.shp',
+		'C:/Data/WindFarmViewShed/Tests/PythonTests/testData/turbinesFinalSample.shp',
 		'turbines','ogr')
 	print(turbines.isValid())
 
 	######################
 	#load houses
-	houses = QgsVectorLayer('C:/Data/WindFarmViewShed/Tests/PythonTests/testData/rawGeocodedNewRoS2.shp','houses','ogr')
+	# houses = QgsVectorLayer('C:/Data/WindFarmViewShed/Tests/PythonTests/testData/rawGeocodedNewRoS2.shp','houses','ogr')
+	# print(houses.isValid())
+
+	houses = QgsVectorLayer('C:/Data/WindFarmViewShed/ViewshedPython/Data/housesFinal/housesFinalMay2016.shp',
+		'houses','ogr')
 	print(houses.isValid())
 
 	# for field in houses.fields():
