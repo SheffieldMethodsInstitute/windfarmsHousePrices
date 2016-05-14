@@ -67,6 +67,7 @@ public class Main {
     //or get batch number from serialised data and then start with next batch
     int batchNumber = 1;
     boolean useSerialisedIfAvailable = false;
+    boolean useSampleHousingData = false;
     //Set to batch number point to serialise results. Minus one to turn off.
     int serialiseResultsAsWeGo = -1;
 
@@ -88,29 +89,6 @@ public class Main {
 
         long startTime = System.currentTimeMillis();
 
-        //Tests
-        if (false) {
-
-            int fileIndex = 2;
-            buildingHeightRun = true;
-
-            System.out.println("Loading fileset " + fileIndex + ", " + ((System.currentTimeMillis() - startTime) / 1000) + " seconds elapsed");
-            loadRasterData(fileIndex);
-            //loadPointsData(fileIndex);
-
-            targets = new DataStore();
-            testInterViz();
-
-            //Non-building-height output
-            try {
-                DataOutput.outputPointsNViz(targets, "data/output_tests/" + fileIndex + ".csv");
-//                DataOutput.outputData(targets, "data/output_tests/" + fileIndex + ".csv");
-            } catch (Exception e) {
-                System.out.println("Data output booboo: " + e);
-            }
-
-        }
-
         //model run
         if (true) {
 
@@ -125,7 +103,9 @@ public class Main {
 //            for (int fileIndex = batchNumber; fileIndex < 6; fileIndex++) {
             //batch number may be set higher if serialised previous work loaded
 //            for (int fileIndex = batchNumber; fileIndex < list.size() + 1; fileIndex++) {
-            for (int fileIndex = 7; fileIndex < 8; fileIndex++) {
+//            for (int fileIndex = 7; fileIndex < 8; fileIndex++) {
+            //Cathkin Braes
+            for (int fileIndex = 47; fileIndex < 48; fileIndex++) {
 //            for (int fileIndex = testFileSet; fileIndex < testFileSet + 1; fileIndex++) {
 
                 //There'll always be one non-building-height run
@@ -134,17 +114,19 @@ public class Main {
                 System.out.println("Loading fileset " + fileIndex + ", " + ((System.currentTimeMillis() - startTime) / 1000) + " seconds elapsed");
 
                 //memory checks
-                System.out.println("Total memory: " + (Runtime.getRuntime().maxMemory())/1073741824f
+                System.out.println("Total memory: " + (Runtime.getRuntime().maxMemory()) / 1073741824f
                         + "gb , available memory: "
-                        + (Runtime.getRuntime().freeMemory())/1073741824f + "gb");
+                        + (Runtime.getRuntime().freeMemory()) / 1073741824f + "gb");
 
                 loadRasterData(fileIndex);
-                loadPointsData(fileIndex);
+                //Flag: if true, try and load sample version of batch file (e.g. "47sample.csv")
+                //Sampling done in viewshed_R/sampleHousingTargetFiles.R
+                loadPointsData(fileIndex, useSampleHousingData);
 
                 interViz(allHouses);
 
                 //serialise in case we stop running for any reason and can pick up where we left off
-                if (fileIndex % serialiseResultsAsWeGo == 0 && serialiseResultsAsWeGo!=-1) {
+                if (fileIndex % serialiseResultsAsWeGo == 0 && serialiseResultsAsWeGo != -1) {
                     System.out.println("Saving non-building height...");
                     fileName = ("data/serialised/nonBuilding/" + fileIndex + ".ser");
                     serialise(allHouses, fileName);
@@ -157,15 +139,17 @@ public class Main {
                     buildingHeightRun = true;
 
                     //Easiest way to re-set the points. Not large files...
-                    loadPointsData(fileIndex);
+                    //Flag: if true, try and load sample version of batch file (e.g. "47sample.csv")
+                    //Sampling done in viewshed_R/sampleHousingTargetFiles.R
+                    loadPointsData(fileIndex, useSampleHousingData);
 
                     interViz(allHouses_BH);
 
                     //serialise in case we stop running for any reason and can pick up where we left off
-                    if (fileIndex % serialiseResultsAsWeGo == 0 && serialiseResultsAsWeGo!=-1) {
+                    if (fileIndex % serialiseResultsAsWeGo == 0 && serialiseResultsAsWeGo != -1) {
                         System.out.println("Saving building height...");
                         fileName = ("data/serialised/building/" + fileIndex + ".ser");
-                        serialise(allHouses, fileName);
+                        serialise(allHouses_BH, fileName);
                     }
 
                 }
@@ -177,7 +161,7 @@ public class Main {
             //Non-building-height output
             try {
 //                DataOutput.outputData(allHouses, "data/output/allHouses.csv");
-                DataOutput.outputData(allHouses, "data/output/allHouses_glasgowTest.csv");
+                DataOutput.outputData(allHouses, "data/output/allHouses_CathkinBraes125mTest_BH_edgeWalkTest.csv");
             } catch (Exception e) {
                 System.out.println("Data output booboo: " + e);
             }
@@ -185,7 +169,7 @@ public class Main {
             //Aaaand building height output
             try {
 //                DataOutput.outputData(allHouses_BH, "data/output/allHouses_buildingHeights.csv");
-                DataOutput.outputData(allHouses_BH, "data/output/allHouses_buildingHeights_glasgowTest.csv");
+                DataOutput.outputData(allHouses_BH, "data/output/allHouses_buildingHeights_CathkinBraes125mTest_BH_edgeWalkTest.csv");
             } catch (Exception e) {
                 System.out.println("Data output booboo: " + e);
             }
@@ -252,12 +236,23 @@ public class Main {
                 //Try reversing order. Should be exactly same outcome.
                 heights = BresenhamLine.findLine((int) target.x, (int) target.y, observerX, observerY, distance2D);
 
-                //            lineOfSight = getLineOfSight(100, 2);
+                //System.out.println("length of returned heights array:" + heights.length);
+                //lineOfSight = getLineOfSight(100, 2);
                 //Oops: 5 metre units. That was a half-km high turbine and 10 metre high human!
                 //System.out.println("using ob and target heights: " + observerHeight + ", " + target.height);
                 //Needs to be in the same order as "heights"
                 //In this case from target to observer - not very logical-sounding!
-                lineOfSight = getLineOfSight(0, ((float) target.height / 5f), (observerHeight / 5f));
+                //if building height run, vanilla DEM will be in index 1. Slight hacking now!
+                //We need to base the line of sight on vanilla DEM - 
+                //otherwise we're looking from 2 metres above a roof!                
+                //Update: no it won't. The start-point at the building is set to 
+                //The same height as vanilla in BresenhamLine.
+                //And large turbines are of course never on top of buildings!
+                //So it was correct but perhaps for the wrong reason -
+                //I'll leave it picking a line on the vanilla DEM. (Is still working.)
+                lineOfSight = getLineOfSight(
+                        (buildingHeightRun ? 1 : 0),
+                        ((float) target.height / 5f), (observerHeight / 5f));
 //                lineOfSight = getLineOfSight(1, (observerHeight / 5f), ((float) target.height / 5f));
 
                 //Apply distance to nearest to parent property object
@@ -307,14 +302,15 @@ public class Main {
 //                if (target.amISeen) {
 //                    System.out.println("targetcount: " + targetcount);
 //                    if (targetcount++ < 20) {
-//                if (targetcount++ % 500 == 0) {
+//                if (targetcount++ % 1 == 0) {
+////                if (targetcount++ % 500 == 0) {
 //                    try {
 //
 //                        String type = (buildingHeightRun ? "withBuildingHeights" : "noBuildingHeights");
 //
 //                        DataOutput.outputHeightsAndLineOfSight(target.amISeen, heights, lineOfSight, distance2D,
-//                                ("data/lineofsight/" + type + "/lineOfSight_target" + targetcount
-//                                + "_batch_" + batchcount
+//                                ("data/lineofsight/" + type + "/lineOfSight_target" + target.id
+//                                + "_batch_" + batchNumber
 //                                + ".csv"));
 //
 //                    } catch (Exception e) {
@@ -357,120 +353,6 @@ public class Main {
 //        }
 //
 //    }
-    private void testInterViz() {
-
-        long before = System.currentTimeMillis();
-        int id = 0;
-
-        Random randTarget = new Random(1);
-
-        float radius = (Landscape.height / 2) - 1;
-        System.out.println("radius: " + radius);
-
-        observerX = (Landscape.width / 2) - 1;
-        observerY = (Landscape.height / 2) - 1;
-
-        System.out.println("observer: " + observerX + "," + observerY);
-
-        viewCircle = new Ellipse2D.Float((float) observerX - radius, (float) observerY - radius, radius * 2, radius * 2);
-
-        for (int i = 0; i < 500000; i++) {
-
-            if (i % 5000 == 0) {
-                System.out.println("Interviz test, target:" + i + " ,"
-                        + ((System.currentTimeMillis() - before) / 1000) + " secs");
-            }
-
-            targetX = -1;
-            targetY = -1;
-
-//            random points for observer to look at 
-            while (!viewCircle.contains(targetX, targetY)) {
-
-                targetX = randTarget.nextInt(Landscape.width);
-                targetY = randTarget.nextInt(Landscape.height);
-
-            }
-
-            distance2D = (new Point2D.Double(targetX, targetY).distance(new Point2D.Double(observerX, observerY))) * 5;
-
-//            System.out.println("targetX: " + targetX + ", targetY: " + targetY);
-            heights = BresenhamLine.findLine(observerX, observerY, targetX, targetY, distance2D);
-//                    fheights = BresenhamLine.findLine2(raster, x, y, i, j);
-
-//            lineOfSight = getLineOfSight(100, 2);
-            //Oops: 5 metre units. That was a half-km high turbine and 10 metre high human!
-//            lineOfSight = getLineOfSight(20, 0.2f);
-            lineOfSight = getLineOfSight(0, 20, 0.2f);
-
-            //do bespoke coordinate conversion to match raster in QGIS
-            targetX = Landscape.origin[0] + (targetX * 5);
-            targetY = Landscape.origin[1] - (targetY * 5);
-
-            TargetPoint Tg = new TargetPoint("", 0, (double) targetX, (double) targetY, 0, 2);
-
-            Tg.amISeen = canISeeYou(0);
-
-            targets.points.add(Tg);
-
-            //look at some
-//            if (canISeeYou) {
-//            if (i % 500 == 0) {
-//                try {
-//                    DataOutput.outputHeightsAndLineOfSight(canISeeYou, heights, lineOfSight, ("data/lineofsight/lineOfSight_z_" + i + ".csv"));
-//                } catch (Exception e) {
-//                    System.out.println(e.getMessage());
-//                }
-//
-//            }
-        }
-
-    }//end method
-//    private void getViewShed(int x, int y, float radius) {
-//
-//        int fcount = 0, tcount = 0;
-//
-//        viewShed = new boolean[Landscape.width][Landscape.height];
-//        viewCircle = new Ellipse2D.Float((float) x - radius, (float) y - radius, radius * 2, radius * 2);
-//
-//        long before = System.currentTimeMillis();
-//
-//        //Work out visibility of every point
-//        for (int i = 0; i < Landscape.width; i++) {
-//
-//            if (i % 10 == 0) {
-//                System.out.println("Viewshed processing: row " + i + ", time: "
-//                        + ((System.currentTimeMillis() - before) / 1000) + " secs");
-//            }
-//
-//            for (int j = 0; j < Landscape.height; j++) {
-//
-//                //within view radius?
-//                if (viewCircle.contains(i, j)) {
-//
-//                    heights = BresenhamLine.findLine(raster, x, y, i, j);
-////                    fheights = BresenhamLine.findLine2(raster, x, y, i, j);
-//                    lineOfSight = getLineOfSight(100, 2);
-//
-//                    viewShed[i][j] = canISeeYou();
-//
-//                }
-//
-//                //Simple check
-////                if(viewShed[i][j]) {
-////                    tcount++;
-////                } else {
-////                    fcount++;
-////                }
-//            }
-//        }
-//
-////        System.out.println("True: " + tcount + ", False: " + fcount);
-//        System.out.println("Viewshed processing time: "
-//                + ((System.currentTimeMillis() - before) / 1000) + " secs");
-//
-//    }
-
     private boolean canISeeYou(int index) {
 
 //        System.out.println("------------");
@@ -494,12 +376,22 @@ public class Main {
 
     }
 
-    private float[] getLineOfSight(int index, float obHeight, float targetHeight) {
+    private float[] getLineOfSight(int index, float startHeight, float endHeight) {
 
         //We know the length of line we need.
         //Just need to interpolate values between the two endpoints
-        obHeight += heights[index].get(0);
-        targetHeight += heights[index].get(heights[index].size() - 1);
+        startHeight += heights[index].get(0);
+        endHeight += heights[index].get(heights[index].size() - 1);
+
+        //Which of course will always be the same because I SET THEM THE SAME!
+//        if (buildingHeightRun) {
+//            if (heights[0].get(0)!=heights[1].get(0)) {
+//                System.out.println("getLineOfSight: index 0 and 1 of heights, first values if values differ: "
+//                        + heights[0].get(0)
+//                        + ","
+//                        + heights[1].get(0));
+//            }
+//        }
 
 //        System.out.println("ob and target height: " + obHeight + "," + targetHeight);
         float[] line = new float[heights[index].size()];
@@ -533,11 +425,11 @@ public class Main {
         //Just use ob height for first index 0
         //For subsequent ones, starting from one, subtract length of index -1 so you hit target height at the last one.
         //Why? Cos the sums work then!
-        float range = targetHeight - obHeight;
+        float range = endHeight - startHeight;
 
 //        System.out.println("range: " + range);
 //        System.out.println("line length: " + line.length);
-        line[0] = obHeight;
+        line[0] = startHeight;
 
         float stepSize = (range / (float) (line.length - 1));
 //        System.out.println("stepSize: " + stepSize);
@@ -546,7 +438,7 @@ public class Main {
         for (int i = 1; i < line.length; i++) {
 
             //Exclude the first value - just use obHeight for this
-            line[i] = obHeight + (stepSize * (float) (i));
+            line[i] = startHeight + (stepSize * (float) (i));
 
 //            System.out.println("line of sight point before height adj: "
 //                    + line[i]
@@ -609,13 +501,21 @@ public class Main {
 
     }
 
-    private void loadPointsData(int fileNum) {
+    /**
+     * useHousingSample: if true, will look for a version of the numbered CSV
+     * file e.g. "46sample.csv".
+     *
+     * @param fileNum
+     * @param useHousingSample
+     */
+    private void loadPointsData(int fileNum, boolean useHousingSample) {
 
         try {
             //last integers: id, column index of eastings/northings and, for observers, tip height column
             //-1: ignore height column, default to 2m
-            targets = DataInput.loadData("data/targets/" + fileNum + ".csv", "Target", 0, 2, 3, -1);
-//            targets = DataInput.loadData("data/targets/1.csv", "Target", 2, 3);
+            targets = (useHousingSample ? DataInput.loadData("data/targets/" + fileNum + "sample.csv", "Target", 0, 2, 3, -1)
+                    : DataInput.loadData("data/targets/" + fileNum + ".csv", "Target", 0, 2, 3, -1));
+
         } catch (Exception e) {
             System.out.println("Target load fail: " + e.getMessage());
         }
