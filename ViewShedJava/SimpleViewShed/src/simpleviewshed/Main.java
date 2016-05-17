@@ -66,10 +66,11 @@ public class Main {
     //Will start from one if first run
     //or get batch number from serialised data and then start with next batch
     int batchNumber = 1;
-    boolean useSerialisedIfAvailable = false;
+    //if previous data has been serialised, pick up from where we left off
+    boolean useSerialisedIfAvailable = true;
     boolean useSampleHousingData = false;
     //Set to batch number point to serialise results. Minus one to turn off.
-    int serialiseResultsAsWeGo = -1;
+    int serialiseResultsAsWeGo = 30;
 
     public Main() {
 
@@ -100,12 +101,11 @@ public class Main {
 
             System.out.println("loaded all housing data twice. Total size: " + allHouses.points.size() + "," + allHouses_BH.points.size());
 
-//            for (int fileIndex = batchNumber; fileIndex < 6; fileIndex++) {
             //batch number may be set higher if serialised previous work loaded
-//            for (int fileIndex = batchNumber; fileIndex < list.size() + 1; fileIndex++) {
+            for (int fileIndex = batchNumber; fileIndex < list.size() + 1; fileIndex++) {
 //            for (int fileIndex = 7; fileIndex < 8; fileIndex++) {
             //Cathkin Braes
-            for (int fileIndex = 47; fileIndex < 48; fileIndex++) {
+//            for (int fileIndex = 47; fileIndex < 48; fileIndex++) {
 //            for (int fileIndex = testFileSet; fileIndex < testFileSet + 1; fileIndex++) {
 
                 //There'll always be one non-building-height run
@@ -160,16 +160,16 @@ public class Main {
 
             //Non-building-height output
             try {
-//                DataOutput.outputData(allHouses, "data/output/allHouses.csv");
-                DataOutput.outputData(allHouses, "data/output/allHouses_CathkinBraes125mTest_BH_edgeWalkTest.csv");
+                DataOutput.outputData(allHouses, "data/output/allHouses_CEDArun.csv");
+//                DataOutput.outputData(allHouses, "data/output/allHouses_CathkinBraes125mTest_BH_edgeWalkTest.csv");
             } catch (Exception e) {
                 System.out.println("Data output booboo: " + e);
             }
 
             //Aaaand building height output
             try {
-//                DataOutput.outputData(allHouses_BH, "data/output/allHouses_buildingHeights.csv");
-                DataOutput.outputData(allHouses_BH, "data/output/allHouses_buildingHeights_CathkinBraes125mTest_BH_edgeWalkTest.csv");
+                DataOutput.outputData(allHouses_BH, "data/output/allHouses_buildingHeights_CEDArun.csv");
+//                DataOutput.outputData(allHouses_BH, "data/output/allHouses_buildingHeights_CathkinBraes125mTest_BH_edgeWalkTest.csv");
             } catch (Exception e) {
                 System.out.println("Data output booboo: " + e);
             }

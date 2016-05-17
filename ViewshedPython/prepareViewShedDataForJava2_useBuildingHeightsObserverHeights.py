@@ -34,7 +34,7 @@ def run_script(iface):
 
 	#Load from CSV
 	#Relative uri paths nope!
-	uri = "file:///C:/Data/WindFarmViewShed/ViewshedPython/Data/turbinesFinal_reducedColumns.csv?type=csv&xField=Feature.Easting&yField=Feature.Northing&spatialIndex=no&subsetIndex=no&watchFile=no&crs=EPSG:27700"
+	uri = "file:///C:/Data/WindFarmViewShed/ViewshedPython/Data/turbinesFinal_reducedColumns_tipHeightsComplete.csv?type=csv&xField=Feature.Easting&yField=Feature.Northing&spatialIndex=no&subsetIndex=no&watchFile=no&crs=EPSG:27700"
 	#run on pre-selected subset
 	#uri = "file:///C:/Data/WindFarmViewShed/ViewshedPython/Data/turbines_subset.csv?type=csv&xField=Feature.Easting&yField=Feature.Northing&spatialIndex=no&subsetIndex=no&watchFile=no&crs=EPSG:27700"
 	lyr = QgsVectorLayer(uri,'turbinescsv','delimitedtext')
@@ -119,8 +119,9 @@ def run_script(iface):
 	##############
 	#Load DEM terrain data footprint for getting file refs
 	#(made in createVectorBritishNationalGridRefLayer.py)
+	#Load version with CEDA building data flag
 	footprint = QgsVectorLayer(
-		'C:/Data/MapPolygons/Generated/NationalGrid5kmSquares_for_OSterrain/NationalGrid5kmSquares_for_OSterrain.shp','footprint','ogr')
+		'C:/Data/MapPolygons/Generated/NationalGrid5kmSquares_for_OSterrain/NationalGrid5kmSquares_for_OSterrain_w_CEDAflag.shp','footprint','ogr')
 	print(footprint.isValid())
 
 
@@ -278,6 +279,10 @@ def run_script(iface):
 
 		print('id:' + str(buffr.id()))
 
+		#Cheat to look at the one we want...
+		if buffr.id()  < 35:
+			continue
+
 		#####################
 		# TURBINES FIRST
 		# As we'll use these to create larger 15km buffers that select houses and rasters
@@ -361,13 +366,27 @@ def run_script(iface):
 
 			if bh_flag:
 
+				# listOfFiles = [
+				# 	'C:/Data/Terrain5_OS_DEM_Scotland/Zips/allRasterFilesShared/' +
+				# 	(square.attributes()[4].encode('ascii','ignore') + 
+				# 	'.asc') if square.attributes()[5] == 0 else
+				# 	'C:/Data/BuildingHeight_alpha/rasters/' +
+				# 	(square.attributes()[4].encode('ascii','ignore') + 
+				# 	'.tif')
+				# 	for square in squares]
+
+				#CEDA building height version, two switches: is there building height data? Is it mastermap or CEDA?
+				#(Having already deferred to mastermap in the grid flagging)
 				listOfFiles = [
 					'C:/Data/Terrain5_OS_DEM_Scotland/Zips/allRasterFilesShared/' +
 					(square.attributes()[4].encode('ascii','ignore') + 
 					'.asc') if square.attributes()[5] == 0 else
-					'C:/Data/BuildingHeight_alpha/rasters/' +
+					('C:/Data/BuildingHeight_alpha/rasters/' +
 					(square.attributes()[4].encode('ascii','ignore') + 
-					'.tif')
+					'.tif') if square.attributes()[6] == 1 else 
+					 'C:/Data/BuildingHeight_CEDA/rasters/' +
+					(square.attributes()[4].encode('ascii','ignore') + 
+					'.tif'))
 					for square in squares]
 
 			else:
