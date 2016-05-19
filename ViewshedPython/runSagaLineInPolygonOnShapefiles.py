@@ -1,4 +1,4 @@
-#Create lines between houses within 15km of each turbine
+#Load lines of sight produced in viewShed_R/lines_houseToTurbine15km.R
 #To check if line crosses any building height data
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -11,6 +11,8 @@ import fnmatch
 import shutil
 import timeit
 import os
+import timeit
+
 
 def run_script(iface):
 
@@ -22,43 +24,48 @@ def run_script(iface):
 	#Get all shapefile names
 	matches = []
 
-	#test with unzippedTestCopy, just a sample
-	#for root, dirnames, filenames in os.walk('unzippedTestCopy'):
-
 	#Get folder names with shapefiles in
 	for root, dirnames, filenames in os.walk('linesOfSightShapefiles'):
-	    for filename in fnmatch.filter(filenames, '*.shp'):
-	        matches.append(filename)
+		for filename in fnmatch.filter(filenames, '*.shp'):
+			matches.append(filename)
+
+	print ("Total line shapefiles: " + str(len(matches)))
+
+	#matches = matches[2450:2452]
+
+	for match in matches:
+		print match
+		#print match.split(".")[0]
 
 	######
 	# GET THE TWO POLYGON LAYERS TO INTERSECT LINES OF SIGHT WITH
-	# mastermapGrid = QgsVectorLayer(
-	# 	'C:/Data/WindFarmViewShed/QGIS/ReportOutputs/BH_mastermap_grid.shp',
-	# 	'mastermapGrid','ogr')
-	# print(mastermapGrid.isValid())
+	mastermapGrid = QgsVectorLayer(
+		'C:/Data/WindFarmViewShed/QGIS/ReportOutputs/BH_mastermap_grid.shp',
+		'mastermapGrid','ogr')
+	print(mastermapGrid.isValid())
+
+	CEDA_convexHulls = QgsVectorLayer(
+		'C:/Data/BuildingHeight_CEDA/ConvexHulls/dissolve_Intersect_w_GRID_convexHullsOverLayerID.shp',
+		'mastermapGrid','ogr')
+	print(CEDA_convexHulls.isValid())
+
+	#cycle over line files
+	for match in matches:
+
+		before = time.time()
+
+		#Get pre-formed line shapefile from R
+		linez = QgsVectorLayer(
+			('C:/Data/temp/QGIS/linesOfSightShapefiles/' + match),
+			'mastermapGrid','ogr')
+		print(linez.isValid())
+
+		#See if lines cross any areas where there could be building height data
+		processing.runalg('saga:linepolygonintersection', linez, mastermapGrid, 1, ("C:/Data/temp/QGIS/linesOfSightIntersects_mastermap/" + match.split(".")[0] + ".csv"))
+		processing.runalg('saga:linepolygonintersection', linez, CEDA_convexHulls, 1, ("C:/Data/temp/QGIS/linesOfSightIntersects_CEDA/" + match.split(".")[0] + ".csv"))
+
+		print(('saved : ' + match + ", ") + str(time.time() - before) + " seconds. " + str((time.time() - start)/60) + " mins total.")
 
 
-	# #Get pre-formed line shapefile from R
-	# linez = QgsVectorLayer(
-	# 	'C:/Data/temp/QGIS/linesbfhouses_cathekinbraes.shp',
-	# 	'mastermapGrid','ogr')
-	# print(linez.isValid())
-
-	# #See if lines cross any areas where there could be building height data
-	# processing.runalg('saga:linepolygonintersection', linez, mastermapGrid, 1, "C:/Data/temp/QGIS/polylinetest.csv")
-
-	for mtc in matches:
-		print mtc
-
-
-
-
-
-
-
-
-
-
-
-
+	print("Total time: " + str((time.time() - start)/60) + " mins")
 

@@ -57,7 +57,7 @@ start = proc.time()
 #Label with house ID
 #for(j in 1:3) {
 #for(j in sample(1:nrow(tb),8)) {
-for(j in 2291:nrow(buff)) {
+for(j in 2449:nrow(buff)) {
 # for(j in as.numeric(row.names(tb[tb@data$nameMinusTurbine=='Cathekin Braes',]))) {
 
   bfhouses <- hs[buff[j,],]
@@ -96,9 +96,95 @@ for(j in 2291:nrow(buff)) {
   
 }
 
-#plot(SpatialLines(allLines))
-#plot(SpatialLines(l))  
-#plot(SpatialLines(l2))
+#~~~~~~~~~~~~~~~~~~
+# Part two: "Did this property have line of sight passing through building height data?"----
+
+#After having shifted the above line shapefiles through SAGA's polygon/line intersection
+#Here, let's attach the flag to the housing data - which ones passed through building height data?
+#And so could potentially have had line of sight blocked by a building?
+
+#Get each list of files for mastermap/CEDA
+mm_filez <- list.files("C:/Data/temp/QGIS/linesOfSightIntersects_mastermap",pattern = "*.csv$",full.names = T)
+ceda_filez <- list.files("C:/Data/temp/QGIS/linesOfSightIntersects_CEDA",pattern = "*.csv$",full.names = T)
+
+#Why diff number? More CEDA files? If empty intersects were still writing, why aren't there 2560?
+#There are in fact 2560 line shapefiles. I don't like this!
+#mm_filez2 <- list.files("C:/Data/temp/QGIS/linesOfSightIntersects_mastermap",pattern = "*.csv$")
+#ceda_filez2 <- list.files("C:/Data/temp/QGIS/linesOfSightIntersects_CEDA",pattern = "*.csv$")
+
+#That's odd: sometimes it seems to have written an empty files
+#Other times just not written one at all.
+#Oh well... press on!
+
+#Get the housing data too: reduce as well, but use for also marking which properties 
+#are within 15km of at least one turbine
+hs <- read.csv("C:/Data/WindFarmViewShed/ViewShedJava/SimpleViewShed/data/output/allHouses_CEDArun.csv")
+
+hs <- hs %>% dplyr::select(id:distanceToNearest)
+#distanceToNearest is -1 if no turbine was within 15km
+#Oh hang on - that already is a flag. Leave!
+
+#Empty mastermap and CEDA flag columns
+hs$crossesMM <- 0
+hs$crossesCEDA <- 0
+
+for (file in mm_filez){
+  
+  print(file)  
+  
+  df <- read.csv(file, as.is = T)
+  
+  #Turbine number is there if we need it... but right now we don't.
+  #Field looks like: MID100163_turbine1114
+  df$Title <- sapply(df$row_names_, function(x) strsplit(x,"_")[[1]][1])
+  
+  #Any one we have a record for: that property crosses mastermap data
+  #And we have no way of doing this without churning over them all!
+  
+  hs$crossesMM[hs$Title %in% unique(df$Title)] <- 1
+  
+}
+
+
+#CEDA
+for (file in ceda_filez){
+  
+  print(file)  
+  
+  df <- read.csv(file, as.is = T)
+  
+  #Turbine number is there if we need it... but right now we don't.
+  #Field looks like: MID100163_turbine1114
+  df$Title <- sapply(df$row_names_, function(x) strsplit(x,"_")[[1]][1])
+  
+  #Any one we have a record for: that property crosses mastermap data
+  #And we have no way of doing this without churning over them all!
+  
+  hs$crossesCEDA[hs$Title %in% unique(df$Title)] <- 1
+  #table(hs$crossesMM)#yup, working, it appears...
+  
+  
+}
+
+table(hs$crossesMM)#yup, working, it appears...
+table(hs$crossesCEDA)#yup, working, it appears...
+table(hs$crossesMM[hs$distanceToNearest!=-1])#yup, working, it appears...
+table(hs$crossesCEDA[hs$distanceToNearest!=-1])#yup, working, it appears...
+
+#If crosses either...
+hs$crosses_BH <- bitwOr(hs$crossesMM,hs$crossesCEDA)
+
+#Save!
+write.csv(hs,"C:/Data/WindFarmViewShed/ViewshedPython/Data/doHousesCross_BuildingHeightData.csv",row.names = F)
+
+
+
+
+
+
+
+
+
 
 
 
