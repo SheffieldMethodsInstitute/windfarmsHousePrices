@@ -42,10 +42,7 @@ findDists <- function(rownum) {
 #Batches of 10000 each should do?
 hs$batch <- as.numeric(cut(seq(1:nrow(hs)),breaks = nrow(hs)/65000))
 
-# for(i in 2:max(hs$batch)) {
-for(i in 4:max(hs$batch)) {
-#for(i in 1:1) {
-#for(i in 1:10) {
+for(i in 1:max(hs$batch)) {
 
 #Get rows to process on this go
 sequence <- as.integer(rownames(hs[hs$batch == i,]))
