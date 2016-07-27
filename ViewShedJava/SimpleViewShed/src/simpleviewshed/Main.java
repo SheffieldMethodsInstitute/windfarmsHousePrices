@@ -29,6 +29,9 @@ public class Main {
 
     //bh_raster is same but with building heights added. Will use both where possible.
     public static float[][] raster, bh_raster;
+    //switch for trying to use building heights (turn off for e.g. centroid runs that have none)
+    public static boolean weHaveBuildingHeightData = false;
+
     //If building height data is present for this batch...
     public static boolean thisBatchHasBuildingHeights = false;
     //This marks whether a run is taking place using those building heights, for data output porpoises.
@@ -67,15 +70,17 @@ public class Main {
     //or get batch number from serialised data and then start with next batch
     int batchNumber = 1;
     //if previous data has been serialised, pick up from where we left off
-    boolean useSerialisedIfAvailable = true;
+    boolean useSerialisedIfAvailable = false;
     boolean useSampleHousingData = false;
     //Set to batch number point to serialise results. Minus one to turn off.
-    int serialiseResultsAsWeGo = 30;
+    int serialiseResultsAsWeGo = -1;
+
+    public static String rootfolder = "data_centroids2";
 
     public Main() {
 
         //can be any of the three data folders, just need to get the number of files in there
-        File folder = new File("data/observers");
+        File folder = new File(rootfolder + "/observers");
 //        File[] listOfFiles = folder.listFiles();
 
         //http://stackoverflow.com/questions/2102952/listing-files-in-a-directory-matching-a-pattern-in-java
@@ -97,14 +102,18 @@ public class Main {
             //flag for "building height data"; only used if loading serialised
             //Otherwise it'll just load the raw data twice
             allHouses = loadHousingData(false);
-            allHouses_BH = loadHousingData(true);
 
-            System.out.println("loaded all housing data twice. Total size: " + allHouses.points.size() + "," + allHouses_BH.points.size());
+            if (weHaveBuildingHeightData) {
+                allHouses_BH = loadHousingData(true);
+                System.out.println("loaded all housing data twice. Total size: " + allHouses.points.size() + "," + allHouses_BH.points.size());
+            } else {
+                System.out.println("loaded all housing data once (no building data). Total size: " + allHouses.points.size());                
+            }
 
             //batch number may be set higher if serialised previous work loaded
             for (int fileIndex = batchNumber; fileIndex < list.size() + 1; fileIndex++) {
 //            for (int fileIndex = 7; fileIndex < 8; fileIndex++) {
-            //Cathkin Braes
+                //Cathkin Braes
 //            for (int fileIndex = 47; fileIndex < 48; fileIndex++) {
 //            for (int fileIndex = testFileSet; fileIndex < testFileSet + 1; fileIndex++) {
 
@@ -128,7 +137,7 @@ public class Main {
                 //serialise in case we stop running for any reason and can pick up where we left off
                 if (fileIndex % serialiseResultsAsWeGo == 0 && serialiseResultsAsWeGo != -1) {
                     System.out.println("Saving non-building height...");
-                    fileName = ("data/serialised/nonBuilding/" + fileIndex + ".ser");
+                    fileName = (rootfolder + "/serialised/nonBuilding/" + fileIndex + ".ser");
                     serialise(allHouses, fileName);
                 }
 
@@ -148,7 +157,7 @@ public class Main {
                     //serialise in case we stop running for any reason and can pick up where we left off
                     if (fileIndex % serialiseResultsAsWeGo == 0 && serialiseResultsAsWeGo != -1) {
                         System.out.println("Saving building height...");
-                        fileName = ("data/serialised/building/" + fileIndex + ".ser");
+                        fileName = (rootfolder + "/serialised/building/" + fileIndex + ".ser");
                         serialise(allHouses_BH, fileName);
                     }
 
@@ -160,7 +169,7 @@ public class Main {
 
             //Non-building-height output
             try {
-                DataOutput.outputData(allHouses, "data/output/allHouses_CEDArun.csv");
+                DataOutput.outputData(allHouses, rootfolder + "/output/allHouses_CEDArun.csv");
 //                DataOutput.outputData(allHouses, "data/output/allHouses_CathkinBraes125mTest_BH_edgeWalkTest.csv");
             } catch (Exception e) {
                 System.out.println("Data output booboo: " + e);
@@ -168,7 +177,7 @@ public class Main {
 
             //Aaaand building height output
             try {
-                DataOutput.outputData(allHouses_BH, "data/output/allHouses_buildingHeights_CEDArun.csv");
+                DataOutput.outputData(allHouses_BH, rootfolder + "/output/allHouses_buildingHeights_CEDArun.csv");
 //                DataOutput.outputData(allHouses_BH, "data/output/allHouses_buildingHeights_CathkinBraes125mTest_BH_edgeWalkTest.csv");
             } catch (Exception e) {
                 System.out.println("Data output booboo: " + e);
@@ -392,7 +401,6 @@ public class Main {
 //                        + heights[1].get(0));
 //            }
 //        }
-
 //        System.out.println("ob and target height: " + obHeight + "," + targetHeight);
         float[] line = new float[heights[index].size()];
 
@@ -467,7 +475,7 @@ public class Main {
         long before = System.currentTimeMillis();
 
         //load DEM without and with building heights
-        raster = Landscape.readTiff("data/rasters/" + fileNum + ".tif");
+        raster = Landscape.readTiff(rootfolder + "/rasters/" + fileNum + ".tif");
         System.out.println("Vanilla DEM loaded");
 
         //Try loading building height raster. There may not be one 
@@ -476,10 +484,10 @@ public class Main {
 
         //If we want to try and use building heights, where available
         //*and* they exist...        
-        if (new File("data/rasters_w_buildingheight/" + fileNum + ".tif").exists()) {
+        if (new File(rootfolder + "/rasters_w_buildingheight/" + fileNum + ".tif").exists()) {
 
             thisBatchHasBuildingHeights = true;
-            bh_raster = Landscape.readTiff("data/rasters_w_buildingheight/" + fileNum + ".tif");
+            bh_raster = Landscape.readTiff(rootfolder + "/rasters_w_buildingheight/" + fileNum + ".tif");
 
             System.out.println("DEM-plus-building-heights loaded");
 
@@ -513,8 +521,8 @@ public class Main {
         try {
             //last integers: id, column index of eastings/northings and, for observers, tip height column
             //-1: ignore height column, default to 2m
-            targets = (useHousingSample ? DataInput.loadData("data/targets/" + fileNum + "sample.csv", "Target", 0, 2, 3, -1)
-                    : DataInput.loadData("data/targets/" + fileNum + ".csv", "Target", 0, 2, 3, -1));
+            targets = (useHousingSample ? DataInput.loadData(rootfolder + "/targets/" + fileNum + "sample.csv", "Target", 0, 2, 3, -1)
+                    : DataInput.loadData(rootfolder + "/targets/" + fileNum + ".csv", "Target", 0, 2, 3, -1));
 
         } catch (Exception e) {
             System.out.println("Target load fail: " + e.getMessage());
@@ -530,7 +538,10 @@ public class Main {
         try {
 
             //last integers: id, column index of eastings/northings and, for observers, tip height column
-            observers = DataInput.loadData("data/observers/" + fileNum + ".csv", "Observer", 0, 2, 3, 7);
+            //For individual turbines, tip height is in column 7
+            //observers = DataInput.loadData(rootfolder + "/observers/" + fileNum + ".csv", "Observer", 0, 2, 3, 7);
+            //for centroid-windfarms, tip height is in column 5
+            observers = DataInput.loadData(rootfolder + "/observers/" + fileNum + ".csv", "Observer", 0, 2, 3, 5);
 //            observers = DataInput.loadData("data/observers/singleTurbine.csv", "Observer", 2, 3);
 
         } catch (Exception e) {
@@ -557,7 +568,9 @@ public class Main {
 
         //Either load from file initially
         //Or reload serialised version if we're part way through a run
-        File folder = (buildingHeight ? new File("data/serialised/building") : new File("data/serialised/nonBuilding"));
+        File folder = (buildingHeight ? new File(rootfolder + "/serialised/building") : new File(rootfolder + "/serialised/nonBuilding"));
+        
+        System.out.println("Load housing data from folder: " + folder.getName());
 
         //http://stackoverflow.com/questions/2102952/listing-files-in-a-directory-matching-a-pattern-in-java
         List<File> list = Arrays.asList(folder.listFiles(new FilenameFilter() {
@@ -616,7 +629,12 @@ public class Main {
             try {
                 //last integers: id, column index of eastings/northings and, for observers, tip height column
                 //-1: ignore height column, default to 2m
-                d = DataInput.loadData("C:\\Data\\WindFarmViewShed\\ViewshedPython\\Data\\houses_finalMay2016.csv", "Target", 0, 2, 3, -1);
+
+                //Postcode centroids                
+                d = DataInput.loadData("C:\\Data\\WindFarmViewShed\\ViewshedPython\\Data\\postcode_centroids.csv", "Target", 0, 2, 3, -1);
+                //
+//                d = DataInput.loadData("C:\\Data\\WindFarmViewShed\\ViewshedPython\\Data\\houses_finalMay2016.csv", "Target", 0, 2, 3, -1);
+
 //            d = DataInput.loadData("C:\\Data\\WindFarmViewShed\\ViewshedPython\\Data\\geocodedOldNewRoS.csv", "Target", 0, 2, 3, -1);
 //            d = DataInput.loadData("C:/Data/WindFarmViewShed/ViewshedPython/Data/geocodedOldNewRoS.csv", "Target", 0, 2, 3, -1);
 //            targets = DataInput.loadData("data/targets/1.csv", "Target", 2, 3);

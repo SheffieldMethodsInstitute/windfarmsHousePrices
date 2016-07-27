@@ -9,6 +9,8 @@ library(zoo)
 library(ggplot2)
 library(lubridate)
 #library(sp)
+geolibs <- c("pryr","stringr","ggmap","rgdal","rgeos","maptools","dplyr","tidyr","tmap","raster")
+lapply(geolibs, library, character.only = TRUE)
 
 #Original repeat sales
 hs <- readRDS("C:/Data/Housing/JessieExtDrive/Misc_RoS_R_Saves/old_new_repeatSalesFinal.rds")
@@ -94,6 +96,9 @@ pricebuyerdups <- data.frame(pricebuyerdups[order(-pricebuyerdups$count,
                                                   pricebuyerdups$buyer,
                                                   pricebuyerdups$price),])
 
+#save a sample
+write.csv(pricebuyerdups[1:500,c(4:12,14,17:18)], "data/bulkSample.csv")
+
 pbdcheck <- pricebuyerdups[pricebuyerdups$price == 1475000,]
 #pricebuyerdups[1,]
 
@@ -107,6 +112,7 @@ countcounts <- pricebuyerdups %>% distinct(price, buyer) %>%
 pricebuyerORPHANS <- subset(RoS_old, 
                             !(duplicated(RoS_old[,c('price','buyer')])
                             |duplicated(RoS_old[,c('price','buyer')],fromLast = T)))
+
 
 #Total in old orphans: 1,452,392
 unique(pricebuyerORPHANS$newRegist) %>% length
@@ -519,18 +525,257 @@ conc <- conc[conc$priceFinal!=431150,]
   
 saveRDS(conc,"C:/Data/Housing/JessieExtDrive/Misc_RoS_R_Saves/old_new_repeatSalesFinal_bulkSales_minmaxDiffMoreThan9_Removed.rds")
 
+conc <- readRDS("C:/Data/Housing/JessieExtDrive/Misc_RoS_R_Saves/old_new_repeatSalesFinal_bulkSales_minmaxDiffMoreThan9_Removed.rds")
 
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#Filter all-sales (build on filtered repeats)----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+#Get the previously filtered repeats. 
+#Work out what properties are left over from the original list of all properties.
+#Check on filtering out any non-geocodes first.
+#Then check the single-sales for any stoopid prices.
+rpts <- readRDS("C:/Data/Housing/JessieExtDrive/Misc_RoS_R_Saves/old_new_repeatSalesFinal_bulkSales_minmaxDiffMoreThan9_Removed.rds")
 
+allz <- readRDS("C:/Data/Housing/JessieExtDrive/Misc_RoS_R_Saves/TIDIER_oldnew_addressBaseGeocodeMerge.rds")
 
+#Sanity checks
+#rpts titles should be a subset of allz titles 
+#Tick.
+#unique(rpts$Title) %in% unique(allz$Title) %>% table
+#FALSE   TRUE 
+#964676 637034
+unique(allz$Title)%in% unique(rpts$Title)%>% table
 
+#So nearly a million single sales? OK then. It's those we need to be looking at.
+#1112273 obs.
+singlez <- allz[!(allz$Title) %in% unique(rpts$Title),]
 
+#964676, as above
+unique(singlez$Title) %>% length
 
+#So some more that were probably repeats that for various reasons we dropped (including awry prices)
+#So keep only those that are definitely single sales
+#878316 obs, 233957 less than full "not in rpts" list
+singlez <- subset(singlez, !duplicated(singlez$Title) & !duplicated(singlez$Title, fromLast = T))
 
+#Geocoding?
+#678719 with geocodes, 199597 without
+table(0 + !is.na(singlez$eastingsFinal)) 
 
+#Can only use geocoded
+singlez <- singlez[!is.na(singlez$eastingsFinal),]
 
+#What split across old/new we got? A mix, nowt surprising.
+singlez$oldneworboth %>% table
 
+#OK, so now to check on price sanity in the singlez file.
+#Again, probably best to look at council area level so any spikes show up clearly
+#zone that up.
+ca <- readOGR(dsn="C:/Data/MapPolygons/Scotland/2010/ScottishCouncilAreas2010_Derivedbyaggregating2011OAs_usingNRSexactfitCensusIndex", 
+              layer="scotland_ca_2010")
 
+singlez_geo <- singlez
+
+coordinates(singlez_geo) = ~eastingsFinal+northingsFinal
+proj4string(singlez_geo) <- proj4string(ca)
+
+overz <- (singlez_geo %over% ca)
+
+#Long time. Save.
+saveRDS(overz,"data/temp/overz.rds")
+
+singlez_geo@data$councilArea <- overz$code
+
+#and back to non-geo...
+singlez <- data.frame(singlez_geo)
+
+#save
+saveRDS(singlez,"data/temp/singlez_w_CAs.rds")
+
+#And now to sanity-check that mofo. Monthly mean per CA
+singlez$yearmon <- as.yearmon(singlez$date)
+
+hs_monthlyavprice <- singlez %>% group_by(councilArea,yearmon) %>% 
+  summarise(monthlyavprice = mean(priceFinal), monthlymedian = median(priceFinal), numsales = n())
+
+# ggplot(hs_monthlyavprice, aes(x = as.Date(yearmon), y = monthlymedian)) +
+#   geom_line()
+
+ggplot(hs_monthlyavprice, aes(x = as.Date(yearmon), y = monthlyavprice, colour = councilArea)) +
+  geom_line()
+
+#1 is minimum count... 
+min(hs_monthlyavprice$numsales)
+
+#Try quarterly to get bigger count. Does it pick up awry values?
+singlez$quarters <- as.yearqtr(singlez$date)
+
+singlez %>% group_by(councilArea,quarters) %>% 
+  summarise(monthlyavprice = mean(priceFinal), monthlymedian = median(priceFinal), numsales = n()) %>% 
+  ggplot(aes(x = as.Date(quarters), y = monthlyavprice, colour = councilArea)) +
+  geom_line()
+
+#Some of them. So could do a pass on quarters first then check monthly.
+#There appears to be one CA in particular that's weird... 
+#... and only starts with the new data?
+#Are those NAs?
+#ggplot wouldn't show NAs, would it?
+#11 NAs.
+table(0 + is.na(singlez$councilArea))
+
+#Look more closely
+#Look at groups of council areas ordered by their average price
+singlez <- singlez %>% group_by(councilArea) %>% 
+  mutate(CA_mean = mean(priceFinal))
+
+#singlez$groups <- as.numeric(cut_number(as.numeric(singlez$councilArea), 4))
+singlez$groups <- as.numeric(cut_interval(singlez$CA_mean, 9))
+
+singlez %>% group_by(councilArea,quarters) %>% 
+  summarise(monthlyavprice = mean(priceFinal), 
+            group = max(groups), numsales = n()) %>% 
+  ggplot(aes(x = as.Date(quarters), y = monthlyavprice, colour = councilArea)) +
+  geom_line() +
+  facet_wrap(~group)
+
+#Ah yes, it is NAs. Easy nuff to remove then. 
+#Facetting quite useful for looking for problems generally.
+#Dump the 11 NAs
+singlez <- singlez[!is.na(singlez$councilArea),]
+
+singlez %>% group_by(councilArea,yearmon) %>% 
+  summarise(monthlyavprice = mean(priceFinal), 
+            group = max(groups), numsales = n()) %>% 
+  ggplot(aes(x = as.Date(yearmon), y = monthlyavprice, colour = councilArea)) +
+  geom_line() +
+  facet_wrap(~group, scales='free_y') +
+  guides(colour = F)
+
+#Or maybe just look at all council areas
+singlez %>% group_by(councilArea,yearmon) %>% 
+  summarise(monthlyavprice = mean(priceFinal), 
+            group = max(groups), numsales = n()) %>% 
+  ggplot(aes(x = as.Date(yearmon), y = monthlyavprice, colour = councilArea)) +
+  geom_line() +
+  facet_wrap(~councilArea, scales='free_y', ncol = 3) +
+  guides(colour = F)
+
+#Awry values for quarters may be way beyond sensible SDs
+#But might not warp monthly means so much
+#Let's see if an SD filter on quarterlies per council area does the job
+
+singlez_q <- singlez %>% group_by(councilArea,quarters) %>% 
+  mutate(q_avprice = mean(priceFinal), q_sd = sd(priceFinal), numsales = n())
+
+#How many obs beyond 4-sigma? (And should we be using log values? This should still get completely wrong prices)
+singlez_q$beyond4sigma <- 0 + (singlez_q$priceFinal > (singlez_q$q_avprice + (singlez_q$q_sd * 4)) |
+                                 singlez_q$priceFinal < (singlez_q$q_avprice - (singlez_q$q_sd * 4)) )
+
+#0      1 
+#674399 4304
+singlez_q$beyond4sigma %>% table
+
+#OK, if we filter those, what do things look like?
+singlez_q %>% 
+  filter(beyond4sigma != 1) %>% 
+  group_by(councilArea,yearmon) %>% 
+  summarise(monthlyavprice = mean(priceFinal), 
+            group = max(groups), numsales = n()) %>% 
+  ggplot(aes(x = as.Date(yearmon), y = monthlyavprice, colour = councilArea)) +
+  geom_line() +
+  facet_wrap(~councilArea, scales='free_y', ncol = 3) +
+  guides(colour = F)
+
+#All but one value, which I suspect is a single value with no SD.
+#Council area S12000046
+lookz <- singlez_q %>% filter(beyond4sigma != 1 & councilArea == 'S12000046') %>% 
+  group_by(councilArea,yearmon) %>% 
+  summarise(monthlyavprice = mean(priceFinal), 
+            group = max(groups), numsales = n()) 
+
+#And that's Jun 1994. Let's look at the original prices
+jun94 <- singlez_q %>% filter(councilArea == 'S12000046' & yearmon == 'Jun 1994') %>% 
+  arrange(-priceFinal)
+
+#It's a couple of old-RoS bulk-sales-with-one-price again.
+#Let's just remove them. The 4-sigma filter will have got most of the rest.
+#Check the filter price is only for those I can see.
+#Yup.
+singlez_q %>% filter(priceFinal %in% c(1272247,1230535)) %>% nrow
+jun94 %>% filter(priceFinal %in% c(1272247,1230535)) %>% nrow
+
+singlez_q <- singlez_q %>% filter(!priceFinal %in% c(1272247,1230535))
+
+#OK, we have a winner. Save.
+saveRDS(singlez_q, "data/temp/finalSingleSales.rds")
+singlez_q <- readRDS("data/temp/finalSingleSales.rds")
+
+#Now we just need to combine this with the filtered repeat sales we already have
+#Might as well add a flag just for convenience
+singlez_q$isRepeatSale <- 0
+rpts$isRepeatSale <- 1
+
+names(singlez_q)[names(singlez_q) %in% names(rpts)]
+names(singlez_q)[!names(singlez_q) %in% names(rpts)]
+
+#Might as well not keep council area - need to re-run all the geog assignments anyway.
+
+#Hmm. Or alternatively, do it here (since these are all single Title numbers)
+#And just add to the previous geog file.
+
+#Let's tie these two together first
+repeats_plus_singleSales <- rbind(rpts,singlez_q[,names(singlez_q)[names(singlez_q) %in% names(rpts)]])
+
+#some columns in rpts we don't need either
+# repeats_plus_singleSales <- rbind(rpts %>% dplyr::select_(names(rpts)[names(rpts) %in% names(singlez_q)]), 
+#   singlez_q %>% dplyr::select_(names(singlez_q)[names(singlez_q) %in% names(rpts)]))
+repeats_plus_singleSales <- rbind(rpts[,names(rpts) %in% names(singlez_q)], 
+  singlez_q[,names(singlez_q) %in% names(rpts)])
+
+#And that's all our sales
+saveRDS(
+  repeats_plus_singleSales, 
+  "C:/Data/Housing/JessieExtDrive/Misc_RoS_R_Saves/SingleSalesPlusRepeatSales_filtered_July16.rds")
+
+#save as CSV to windfarms folder. Keep only relevant columns
+write.csv(
+  repeats_plus_singleSales %>% 
+    data.frame %>% 
+    dplyr::select(priceFinal,Title,date,oldneworboth,eastingsFinal,northingsFinal,isRepeatSale), 
+  "C:/Users/SMI2/Dropbox/WindFarmsII/data/allSalesData/SingleSalesPlusRepeatSales_filtered_July16.csv",
+  row.names = F)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#Actually, add in postcode via PiP for ease.
+houses <- read.csv("C:/Users/SMI2/Dropbox/WindFarmsII/data/allSalesData/SingleSalesPlusRepeatSales_filtered_July16.csv")
+
+areacodes <- read.csv("C:/Users/SMI2/Dropbox/WindFarmsII/data/allSalesData/UniqueAddressesOnly_allSales_areacodes.csv")
+
+pcs <- read.csv("C:/Users/SMI2/Dropbox/WindFarmsII/data/allSalesData/postcode_centroids.csv")
+
+#sanity checks... good good.
+unique(houses$Title) %>% length
+unique(areacodes$Title) %>% length
+#good good!
+unique(areacodes$postcode) %>% length
+unique(pcs$postcode) %>% length
+
+#Any missing postcodes? Newp.
+table(0 + is.na(areacodes$postcode), useNA = 'always')
+
+houses <- merge(houses,areacodes %>% dplyr::select(Title,postcode), by = 'Title')
+
+#make clear it's a geog-deduced postcode
+houses <- houses %>% rename(postcode_via_pip = postcode)
+
+#merge in postcode ID as well
+houses <- merge(houses,pcs %>% dplyr::select(id,postcode), by.x = 'postcode_via_pip', by.y = 'postcode')
+
+houses <- houses %>% dplyr::select(Title:isRepeatSale,postcode_via_pip,postcode_id = id)
+
+#save again
+write.csv(houses,"C:/Users/SMI2/Dropbox/WindFarmsII/data/allSalesData/SingleSalesPlusRepeatSales_filtered_July16.csv", row.names = F)
 
 
 

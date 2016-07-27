@@ -120,6 +120,29 @@ statz <- areacodes2 %>% group_by(POSTCODE) %>% summarise(countz = length(POSTCOD
 mean(statz$countz)
 sd(statz$countz)
 
+#~~~~~~~~
+#Attach 2011 OA rural/urban code
+areacodes <- read.csv("C:/Data/Housing/JessieExtDrive/Misc_RoS_R_Saves/UniqueAddressesOnly_repeatSales_areacodes2.csv")
+
+#Huh: that's got an index in that's WRONG, just to confuse matters. Is that the case in the shared data?
+#areacodes_chk <- read.csv("C:/Users/SMI2/Dropbox/WindFarmsII/data/original/UniqueAddressesOnly_repeatSales_areacodes2.csv")
+
+#Yup. Right, well, remove that then...
+#merge in classification
+oa_df <- data.frame(oa)
+
+areacodes <- merge(areacodes, oa_df[,c("code","oac_supe_1")], by.x = "outputArea", by.y = "code", all.x = T)
+
+#drop x column
+areacodes <- areacodes %>% dplyr::select(Title:councilArea,outputArea,oac_supe_1)
+
+write.csv(areacodes,"C:/Data/Housing/JessieExtDrive/Misc_RoS_R_Saves/UniqueAddressesOnly_repeatSales_areacodes3_OAC.csv", row.names = F)
+
+
+
+
+
+
 
 
 

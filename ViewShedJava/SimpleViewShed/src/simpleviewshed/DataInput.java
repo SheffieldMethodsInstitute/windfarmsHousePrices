@@ -107,7 +107,7 @@ public class DataInput {
 
     public static int[] loadCoords(int index) throws Exception {
 
-        BufferedReader reader = new BufferedReader(new FileReader("data/coords/" + index + ".txt"));
+        BufferedReader reader = new BufferedReader(new FileReader(Main.rootfolder + "/coords/" + index + ".txt"));
 //        List<String> lines = new ArrayList<>();
         String line;
         String[] cells;
