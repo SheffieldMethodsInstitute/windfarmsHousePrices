@@ -1,0 +1,5 @@
+/qgis/*
+/temp/*
+/.Rproj.user/*
+.Rhistory
+.Rproj.user
